@@ -12,9 +12,9 @@ skip_param = 103
 
 ### INPUT ###
 # table matches
-matches = list.files("data/Distiller", pattern = "[0-9].html", full.names = T)
+matches = list.files("data/Distiller/0+2", pattern = "[0-9].html", full.names = T)
 # table peptide ints
-ints = list.files("data/Distiller/", pattern = "[0-9].txt", full.names = T)
+ints = list.files("data/Distiller/0+2", pattern = "[0-9].txt", full.names = T)
 
 
 ### MAIN PART ###
@@ -28,7 +28,7 @@ for (i in 1:length(matches)){
   
 }
 dtbl = plyr::ldply(d)
-write.table(dtbl, file = "qiSPI/INPUT/quantitation_results/table_matches.txt",
+write.table(dtbl, file = "qiSPI/INPUT/quantitation_results/TSN5_0+2_table_matches.txt",
             sep = "\t", row.names = FALSE, append = FALSE)
 
 
@@ -44,5 +44,5 @@ for (i in 1:length(ints)){
 }
 ltbl = plyr::ldply(l)
 
-write.table(ltbl, file = "qiSPI/INPUT/quantitation_results/table_pept_int.txt",
+write.table(ltbl, file = "qiSPI/INPUT/quantitation_results/TSN5_0+2_table_pept_int.txt",
             sep = "\t", row.names = FALSE, append = FALSE)

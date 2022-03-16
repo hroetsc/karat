@@ -74,6 +74,9 @@ comp = list(b5 = list(target = b5_idx,
 suppressWarnings(sapply(paste0("results/",names(comp),"/"), dir.create))
 
 ################################################################################
+subunit = "b5"
+comparison = "b5_vs_no"
+
 # function that does limma DE analysis for given subunit/comparison
 DEanalysis = function(subunit, comparison) {
   
@@ -178,15 +181,15 @@ DEanalysis = function(subunit, comparison) {
                   main = "LOG FOLD CHANGE - b5: purple, b1: black, b2: blue, no inhibitor: gray")
     boxplot(FC[kk,], main = "LOG FOLD CHANGE")
     
-    plotDensities(log(INT_4hrs[kk, 4+c(b1_idx,b2_idx,b5_idx,no_idx)]+1),  # !!!!!!
+    plotDensities(log10(INT_4hrs[kk, 4+c(b1_idx,b2_idx,b5_idx,no_idx)]+1),  # !!!!!!
                   group = c(rep("b1",length(b1_idx)),
                             rep("b2",length(b2_idx)),
                             rep("b5",length(b5_idx)),
                             rep("no",length(no_idx))),
                   col = c("black", "lightblue", "purple","gray"),
                   legend = F,
-                  main = "LOG INTENSITY @ 4HRS - b5: purple, b1: black, b2: blue, no inhibitor: gray")
-    boxplot(log(INT_4hrs[kk, intIDX]+1), main = "LOG INTENSITY @ 4HRS")
+                  main = "LOG10 INTENSITY @ 4HRS - b5: purple, b1: black, b2: blue, no inhibitor: gray")
+    boxplot(log10(INT_4hrs[kk, intIDX]+1), main = "LOG10 INTENSITY @ 4HRS")
     
     dev.off()
   }
@@ -222,8 +225,6 @@ DEanalysis = function(subunit, comparison) {
 
 # ----- APPLY -----
 
-# subunit = "b5"
-# comparison = "b5_vs_no"
 
 for (su in names(comp)) {
   

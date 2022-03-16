@@ -1,6 +1,7 @@
 ### INHIBITOR KINETICS ###
 # description:  parse qiSPI output for DE analysis
-# input:        qiSPI filtered resulst (from 9_filterKinetics.R)
+# input:        qiSPI filtered resulst (from 9_filterKinetics.R), unfiltered results,
+#               substrate degradation determined using XICs
 # output:       table with intensities for all peptides
 # author:       HR
 
@@ -16,6 +17,7 @@ techReps = 2
 load("qiSPI/OUTPUT/TSN5_0+4/filteredResults.RData")
 load("qiSPI/OUTPUT/TSN5_0+4/quantity_rep.RData")
 sample_list = read.csv("qiSPI/INPUT/sample_list.csv", stringsAsFactors = F)
+load("data/substrate-degradation.RData")
 
 ### MAIN PART ###
 # ----- preprocessing & formatting -----
@@ -100,10 +102,10 @@ getIntensityTable = function(target) {
   INTtable$spliceType[is.na(INTtable$spliceType)] = "PCP"
   
   # remove substrate
-  k2 = which(INTtable$pepSeq == INTtable$substrateSeq)
-  if (length(k2) > 0) {
-    INTtable = INTtable[-k2,]
-  }
+  # k2 = which(INTtable$pepSeq == INTtable$substrateSeq)
+  # if (length(k2) > 0) {
+  #   INTtable = INTtable[-k2,]
+  # }
   
   return(INTtable)
 }
@@ -111,8 +113,40 @@ getIntensityTable = function(target) {
 INT_0hrs = getIntensityTable(target = "0")
 INT_4hrs = getIntensityTable(target = "4")
 
-# ---- statistics -----
 intIDX = which(names(INT_0hrs) %in% unique(cond$condition))
+I0 = as.matrix(INT_0hrs[,intIDX])
+I4 = as.matrix(INT_4hrs[,intIDX])
+
+
+# ----- remove synthesis errors -----
+# for no inhibitor: remove everything that has a lower intensity at 4 hrs than at 0 hrs
+# mean over technical and biological replicates
+
+no_idx = c(1:4)
+b1_idx = c(13:16)
+b2_idx = c(9:12)
+b5_idx = c(5:8)
+
+rem = which(rowMeans(I4[,no_idx]) < rowMeans(I0[,no_idx]))
+length(rem) / nrow(I4)
+
+I0 = I0[-rem,]
+I4 = I4[-rem,]
+INT_0hrs = INT_0hrs[-rem,]
+INT_4hrs = INT_4hrs[-rem,]
+
+table(INT_4hrs$spliceType)
+
+# ----- get substrate degradation -----
+# from Distiller XIC
+# how?!
+# sk = which(INT_0hrs$substrateSeq == INT_0hrs$pepSeq)
+# subsDeg = I4[sk,] - I0[sk,]
+# subsDeg
+# subsDeg/max(I4) * 100
+
+
+# ---- statistics -----
 
 apply(INT_0hrs[,intIDX], 2, summary)
 apply(INT_4hrs[,intIDX], 2, summary)
@@ -134,14 +168,14 @@ diagnostics = function(M) {
   
 }
 
-# ----- data normalisation -----
-## set 0 intensities to NA
-I0 = as.matrix(INT_0hrs[,intIDX])
-rownames(I0) = INT_0hrs$pepSeq
-I0[I0==0] = NA
 
-I4 = as.matrix(INT_4hrs[,intIDX])
-rownames(I4) = INT_4hrs$pepSeq
+
+# ----- data normalisation -----
+## quantile normalisation over all time points/ technical replicates
+## normalise 4 hrs intensities by the substrate degradation
+
+## set 0 intensities to NA
+I0[I0==0] = NA
 I4[I4==0] = NA
 
 ## plot 5% quantiles
@@ -158,16 +192,49 @@ plot(log10(quantiles0), pch=16, col="black", ylim = c(0,5),
 points(log10(quantiles4), pch=16, col="limegreen")
 abline(v = c(4.5, 8.5, 12.5), lty="dashed")
 
+
 ## background correction using the 5% quantile
-I0 = apply(I0, 2, function(x){
-  x = x/quantile(x, 0.05, na.rm=T)
-  return(x)
+q_no = quantile(rbind(I0[,no_idx], I4[,no_idx]), 0.05, na.rm = T)
+q_b1 = quantile(rbind(I0[,b1_idx], I4[,b1_idx]), 0.05, na.rm = T)
+q_b2 = quantile(rbind(I0[,b2_idx], I4[,b2_idx]), 0.05, na.rm = T)
+q_b5 = quantile(rbind(I0[,b5_idx], I4[,b5_idx]), 0.05, na.rm = T)
+
+I0[,no_idx] = I0[,no_idx]/q_no
+I4[,no_idx] = I4[,no_idx]/q_no
+
+I0[,b1_idx] = I0[,b1_idx]/q_b1
+I4[,b1_idx] = I4[,b1_idx]/q_b1
+
+I0[,b2_idx] = I0[,b2_idx]/q_b2
+I4[,b2_idx] = I4[,b2_idx]/q_b2
+
+I0[,b5_idx] = I0[,b5_idx]/q_b5
+I4[,b5_idx] = I4[,b5_idx]/q_b5
+
+## plot 5% quantiles
+quantiles0 = apply(I0, 2, function(x){
+  quantile(x, 0.05, na.rm=T)
+})
+quantiles4 = apply(I4, 2, function(x){
+  quantile(x, 0.05, na.rm=T)
 })
 
-I4 = apply(I4, 2, function(x){
-  x = x/quantile(x, 0.05, na.rm=T)
-  return(x)
-})
+plot(log10(quantiles0), pch=16, col="black", ylim = c(-1,3),
+     main = "log10 5% quantiles of intensities",
+     sub = "black: 0 hrs, green: 4 hrs")
+points(log10(quantiles4), pch=16, col="limegreen")
+abline(v = c(4.5, 8.5, 12.5), lty="dashed")
+
+
+# I0 = apply(I0, 2, function(x){
+#   x = x/quantile(x, 0.05, na.rm=T)
+#   return(x)
+# })
+# 
+# I4 = apply(I4, 2, function(x){
+#   x = x/quantile(x, 0.05, na.rm=T)
+#   return(x)
+# })
 
 pdf("results/parse-intensities_diagnostics.pdf", height = 10, width = 10)
 diagnostics(I0)
@@ -195,17 +262,8 @@ diagnostics(FC)
 FCl = log(FC+1)
 diagnostics(FCl)
 
-## square root
-FCsq = sqrt(FC)
-diagnostics(FCsq)
-
-## median polishing
-# not really working
-mp = medpolish(FC)
-FCm = medpolish(FC)$residuals
-diagnostics(FCm)
-
 dev.off()
+
 
 ### OUTPUT ###
 save(I0, file = "data/intensities-0hrs.RData")
@@ -216,10 +274,18 @@ write.csv(INT_4hrs, "data/intensity-table-4hrs.csv", row.names = F)
 
 save(FC, file = "data/fold-changes.RData")
 save(FCl, file = "data/fold-changes_double-log.RData")
-save(FCm, file = "data/fold-changes_medpolish.RData")
 
 
 # ----- some thoughts ----
+## square root
+FCsq = sqrt(FC)
+diagnostics(FCsq)
+
+## median polishing
+# not really working
+mp = medpolish(FC)
+FCm = medpolish(FC)$residuals
+diagnostics(FCm)
 
 ## quantile normalisation
 # destroys p-values

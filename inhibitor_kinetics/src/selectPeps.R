@@ -72,6 +72,15 @@ fold_changesU = fold_changes[fold_changes$pepSeq %in% pepHigh, names(fold_change
 # some basic statistics
 table(intensitiesU$spliceType)
 
+# ----- filter for intensity -----
+# should have an intensity of larger than 1e05 in 4hrs, no inhibitor
+no_idx = c(1:4)
+keep = which(rowMeans(intensitiesU[,4+no_idx]) > 1e05)
+intensitiesU = intensitiesU[keep, ]
+fold_changesU = fold_changesU[keep, ]
+
+table(intensitiesU$spliceType)
+
 
 ### OUTPUT ###
 write.csv(intensitiesU, file = "results/b5/selectedPeps_intensities.csv",

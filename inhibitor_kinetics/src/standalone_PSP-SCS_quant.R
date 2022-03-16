@@ -16,6 +16,9 @@ source("../brainstorming/src/invitroSPI_utils.R")
 ### INPUT ###
 # final Kinetics
 DB = read.csv("qiSPI/OUTPUT/TSN5_0+4/finalKinetics.csv", stringsAsFactors = F)
+# filtered out synthesis errors
+INTtable = read.csv("data/intensity-table-4hrs.csv", stringsAsFactors = F)
+
 # selected peptides
 selectedPeps = read.csv("results/b5/selectedPeps_intensities.csv", stringsAsFactors = F)
 load("qiSPI/OUTPUT/TSN5_0+4/filteredResults.RData")
@@ -48,10 +51,19 @@ names(res)[2] = "pepSeq"
 DB = left_join(DB, res) %>%
   as.data.frame()
 
-# only selected peptides
-DB = DB[DB$pepSeq %in% selectedPeps$pepSeq, ]
+# no synthesis errors
+DB = DB[DB$pepSeq %in% INTtable$pepSeq, ]
+
+# intensity > 1e05
+no_idx = c(1:4)
+pp = INTtable$pepSeq[rowMeans(INTtable[,4+no_idx]) > 1e05]
+DB = DB[DB$pepSeq %in% pp, ]
+
 # only bioReps that are not b5
-DB = DB[DB$biological_replicate %in% c(1,2,7,8,5,6), ]
+# DB = DB[DB$biological_replicate %in% c(1,2,7,8,5,6), ]
+DB = DB[DB$biological_replicate %in% c(1,2),]
+# intensities at 4 hrs detected in no inhibitor
+DB$intensity = as.numeric(DB$`4`)
 
 DB = DB %>%
   ILredundancy() %>%
@@ -87,20 +99,107 @@ resolve_multimapper = function(ProteasomeDB) {
   }
   
 }
+
+# ---------- relevant info ----------
+# positions
+SR1pos = c("P4"=-3, "P3"=-2, "P2"=-1, "P1"=0,
+           "P-1"=1, "P-2"=2, "P-3"=3, "P-4"=4)
+
+SR2pos = c("P-4_"=-4, "P-3_"=-3, "P-2_"=-2, "P-1_"=-1,
+           "P1_"=0, "P2_"=1, "P3_"=2, "P4_"=3)
+
+PCPpos = c("P4"=-3, "P3"=-2, "P2"=-1, "P1"=0,
+           "P1_"=1, "P2_"=2, "P3_"=3, "P4_"=4)
+
+SRnames = c(names(SR1pos), names(SR2pos))
+types = c("cis", "revCis", "trans", "PCP")
+
+# ---------- extract amino acids ----------
+# extract coordinates of different positions in the substrate
+extract_coordinates = function(tbl = ""){
   
+  tbl$spliceType[(tbl$spliceType == "") | (is.na(tbl$spliceType))] = "PCP"
+  
+  # table with position indices
+  pos = str_split_fixed(tbl$positions, coll("_"), Inf) %>% as.data.frame()
+  pos = apply(pos, 2, function(x){as.numeric(as.character(x))})
+  
+  pcp = which(tbl$spliceType == "PCP")
+  psp = which(tbl$spliceType != "PCP")
+  
+  
+  # PCPs
+  pcpTBL = sapply(PCPpos, function(x){
+    # substr(tbl$substrateSeq[pcp], start = pos[pcp,2]+x, stop = pos[pcp,2]+x)
+    pos[pcp,2]+x
+  }) %>%
+    as.data.frame() %>%
+    mutate(spliceType = tbl$spliceType[pcp],
+           positions = tbl$positions[pcp],
+           pepSeq = tbl$pepSeq[pcp],
+           substrateID = tbl$substrateID[pcp],
+           substrateSeq = tbl$substrateSeq[pcp])
+  
+  
+  # PSPs
+  pspSR1TBL = sapply(SR1pos, function(x){
+    # substr(tbl$substrateSeq[psp], start = pos[psp,2]+x, stop = pos[psp,2]+x)
+    pos[psp,2]+x
+  }) %>%
+    as.data.frame() %>%
+    mutate(spliceType = tbl$spliceType[psp],
+           positions = tbl$positions[psp],
+           pepSeq = tbl$pepSeq[psp],
+           substrateID = tbl$substrateID[psp],
+           substrateSeq = tbl$substrateSeq[psp])
+  
+  
+  pspSR2TBL = sapply(SR2pos, function(x){
+    # substr(tbl$substrateSeq[psp], start = pos[psp,3]+x, stop = pos[psp,3]+x)
+    pos[psp,3]+x
+  }) %>%
+    as.data.frame() %>%
+    mutate(spliceType = tbl$spliceType[psp],
+           positions = tbl$positions[psp],
+           pepSeq = tbl$pepSeq[psp],
+           substrateID = tbl$substrateID[psp],
+           substrateSeq = tbl$substrateSeq[psp])
+  
+  # merge all tables
+  pspTBL = cbind(pspSR1TBL[,names(SR1pos)], pspSR2TBL)
+  
+  pcpPlaceholder = matrix("", length(pcp), length(SR2pos)) %>%
+    as.data.frame()
+  names(pcpPlaceholder) = SRnames[! SRnames %in% names(PCPpos)]
+  pcpTBL2 = cbind(cbind(pcpTBL[,names(PCPpos)], pcpPlaceholder)[, c(names(SR1pos), names(SR2pos))],
+                  pcpTBL[,which(!names(pcpTBL) %in% names(PCPpos))])
+  
+  TBL = rbind(pspTBL, pcpTBL2) %>% as.data.frame()
+  return(TBL)
+}
+
+DBaa = extract_coordinates(DB)
+
+DBMaster = inner_join(DB, DBaa, by=c("pepSeq", "positions")) %>%
+  unique() %>%
+  rename(spliceType = spliceType.x,
+         substrateID = substrateID.x,
+         substrateSeq = substrateSeq.x)
+
+
 # ----- compute SCS-P1 and PSP-P1 -----
-SCS_and_PSP = function(ProteasomeDB) {
+SCS_and_PSP = function(DBMaster,target) {
   
-  ProteasomeDB = resolve_multimapper(ProteasomeDB)
-  ProteasomeDB$productType = toupper(ProteasomeDB$productType)
+  DBMaster = resolve_multimapper(DBMaster)
+  DBMaster$productType = toupper(DBMaster$productType)
   
-  pcpidx = which(ProteasomeDB$productType == "PCP")
-  pspidx = which(ProteasomeDB$productType == "PSP")
+  pcpidx = which(DBMaster$productType == "PCP")
+  pspidx = which(DBMaster$productType == "PSP")
   
-  res = str_split(ProteasomeDB$positions, "_", simplify = T)[,2] %>%
-    as.numeric()
+  res = str_split_fixed(DBMaster$positions, coll("_"), n = Inf) %>%
+    as.data.frame()
   
-  d = data.frame(residue = c(1:nchar(ProteasomeDB$substrateSeq[1])),
+  d = data.frame(residue = c(1:nchar(DBMaster$substrateSeq[1])),
                  scs_mean = 0,
                  scs_sd = 0,
                  scs_n = 0,
@@ -110,23 +209,28 @@ SCS_and_PSP = function(ProteasomeDB) {
   
   for (i in 1:nrow(d)) {
     
-    cntscs = ProteasomeDB[pcpidx,][res[pcpidx] == d$residue[i],] %>%
+    kpcp = which(DBMaster[,target] == d$residue[i] & DBMaster$productType == "PCP")
+    kpsp = which(DBMaster[,target] == d$residue[i] & DBMaster$productType == "PSP")
+    # add the C-terminus of spliced peptides as cleaved residue
+    if (target == "P1") {
+      kpcp = c(kpcp, which(res$V4[pspidx] == d$residue[i]))
+    }
+    
+    cntscs = DBMaster[kpcp,] %>%
       dplyr::group_by(biological_replicate) %>%
       dplyr::summarise(int = sum(intensity))
     
     d$scs_mean[i] = paste(cntscs$int, collapse = "_")
-    # d$scs_mean[i] = paste(log2(cntscs$int+1), collapse = "_")
-    d$scs_n[i] = ProteasomeDB$pepSeq[pcpidx][res[pcpidx] == d$residue[i]] %>%
+    d$scs_n[i] = DBMaster$pepSeq[kpcp] %>%
       unique() %>%
       length()
     
-    cntpsp = ProteasomeDB[pspidx,][res[pspidx] == d$residue[i],] %>%
+    cntpsp = DBMaster[kpsp,] %>%
       dplyr::group_by(biological_replicate) %>%
       dplyr::summarise(int = sum(intensity))
     
     d$psp_mean[i] = paste(cntpsp$int, collapse = "_")
-    # d$psp_mean[i] = paste(log2(cntpsp$int+1), collapse = "_")
-    d$psp_n[i] = ProteasomeDB$pepSeq[pspidx][res[pspidx] == d$residue[i]] %>%
+    d$psp_n[i] = DBMaster$pepSeq[kpsp] %>%
       unique() %>%
       length()
   }
@@ -135,8 +239,8 @@ SCS_and_PSP = function(ProteasomeDB) {
   d[d == ""] = 0
   
   # remove substrate's C terminus from the SCS
-  d$scs_mean[nchar(ProteasomeDB$substrateSeq[1])] = 0
-  d$scs_sd[nchar(ProteasomeDB$substrateSeq[1])] = 0
+  d$scs_mean[nchar(DBMaster$substrateSeq[1])] = 0
+  d$scs_sd[nchar(DBMaster$substrateSeq[1])] = 0
   
   # normalise by sum for each biological replicate
   scs = apply(str_split(d$scs_mean, pattern = "_", simplify = T), 2, as.numeric) %>%
@@ -146,12 +250,6 @@ SCS_and_PSP = function(ProteasomeDB) {
   psp = apply(str_split(d$psp_mean, pattern = "_", simplify = T), 2, as.numeric) %>%
     as.data.frame()
   psp[is.na(psp)] = 0
-  
-  # tmp!!!
-  # normalise by percentage of cleavage/splicing for each residue
-  # s = scs+psp
-  # scs = scs/s
-  # psp = psp/s
   
   scs = sweep(scs, 2, colSums(scs), FUN = "/")
   d$scs_mean = rowMeans(scs) * 100
@@ -167,9 +265,9 @@ SCS_and_PSP = function(ProteasomeDB) {
 }
 
 # ----- plotting -----
-plotPSPandSCS = function(ProteasomeDB, tp, name) {
+plotPSPandSCS = function(DBMaster, name, target) {
   
-  out = SCS_and_PSP(ProteasomeDB)
+  out = SCS_and_PSP(DBMaster,target)
   yl = max(out$scs_mean+max(out$scs_sd), out$psp_mean+max(out$psp_mean)) %>% ceiling()
   
   p = data.frame(residue = rep(out$residue, 2),
@@ -179,39 +277,40 @@ plotPSPandSCS = function(ProteasomeDB, tp, name) {
                  col = c(rep(plottingCols["PCP"], nrow(out)),
                          rep(plottingCols["PSP"], nrow(out))))
   
-  pdf(paste0("results/quantPSPandSCS1_", name, "_", tp, "hrs.pdf"),
+  pdf(paste0("results/quantPSPandSCS1_", name, ".pdf"),
       height = 6, width = 12)
   plot(p1~residue,
        data=p,
        type = "h",
        lwd = 3,
        col = col,
-       main = paste0(name, ": ", tp, " hrs"),
+       main = name,
        ylim = c(-yl, yl),
-       xlab = "substrate residue forming SCS-/PSP-P1",
+       # xlab = "substrate residue forming SCS-/PSP-P1",
+       xlab = "",
        ylab = "substrate-specific cleavage/splicing strength (%)",
-       sub = "mean +- S.D.",
+       # sub = "mean +- S.D.",
        axes=F)
   arrows(p$residue, p$p1-p$stdev, p$residue, p$p1+p$stdev,
          length=0.03, angle=90, code=3,
          lty = "solid", lwd = 1, col = p$col)
   xlabel = c("0",
-             paste(ProteasomeDB$substrateSeq[1] %>% strsplit("") %>% unlist(), seq(1, nchar(ProteasomeDB$substrateSeq[1])), sep = ""))
+             paste(DBMaster$substrateSeq[1] %>% strsplit("") %>% unlist(), seq(1, nchar(DBMaster$substrateSeq[1])), sep = ""))
   # positions
-  text(x = seq(0, nchar(ProteasomeDB$substrateSeq[1])), par("usr")[3]-.3, labels = xlabel,
+  text(x = seq(0, nchar(DBMaster$substrateSeq[1])), par("usr")[3]-.3, labels = xlabel,
        srt=90, xpd=T, cex=.5)
   # number of peptides
-  text(x = seq(0, nchar(ProteasomeDB$substrateSeq[1])), par("usr")[3]-5,
+  text(x = seq(0, nchar(DBMaster$substrateSeq[1])), par("usr")[3]-5,
        labels = c("PCP:",out$scs_n), srt=0, xpd=T, cex=.5)
-  text(x = seq(0, nchar(ProteasomeDB$substrateSeq[1])), par("usr")[3]-10,
+  text(x = seq(0, nchar(DBMaster$substrateSeq[1])), par("usr")[3]-8,
        labels = c("PSP:",out$psp_n), srt=0, xpd=T, cex=.5)
-  axis(2)
+  axis(2, at = seq(round(-yl,-1),round(yl,-1),10))
   dev.off()
   
-  pdf(paste0("results/quantPSPandSCS2_", name, "_", tp, "hrs.pdf"),
+  pdf(paste0("results/quantPSPandSCS2_", name, ".pdf"),
       height = 6, width = 6)
   plot(psp_mean~scs_mean, data = out,
-       main = paste0(name, ": ", tp, " hrs"),
+       main = name,
        pch = 16,
        xlim = c(0, yl),
        ylim = c(0, yl),
@@ -222,41 +321,39 @@ plotPSPandSCS = function(ProteasomeDB, tp, name) {
 }
 
 # ----- execute -----
-# intensities at 4 hrs detected in all replicates except b5 inhibition
-# mean over technical+biological replicates
-uniquePeps = unique(DB$pepSeq)
-for (u in uniquePeps) {
-  k = which(DB$pepSeq == u)
-  DB$biological_replicate[k] = seq(1,12)
-}
+plotPSPandSCS(DBMaster = DBMaster, name = "TSN5all", target = "P1")
 
-DB$intensity = as.numeric(DB$`4`)
-plotPSPandSCS(ProteasomeDB = DB[DB$biological_replicate %in% c(1,2),],
-              tp = 4, name = "TSN5abs")
-# plotPSPandSCS(ProteasomeDB = DB, tp = 4, name = "TSN5perc")
+# only selected peptides
+DB_b5 = DBMaster[DBMaster$pepSeq %in% selectedPeps$pepSeq, ]
+plotPSPandSCS(DBMaster = DB_b5, name = "TSN5_b5_P1", target = "P1")
+plotPSPandSCS(DBMaster = DB_b5, name = "TSN5_b5_P2", target = "P2")
+plotPSPandSCS(DBMaster = DB_b5, name = "TSN5_b5_P3", target = "P3")
 
-
-# DB$intensity = log(DB$`4`+1)
-# plotPSPandSCS(ProteasomeDB = DB, tp = 4, name = "TSN5log")
+DB_log = DBMaster
+DB_log$intensity = log(DB$intensity+1)
+plotPSPandSCS(DBMaster = DB_log, name = "TSN5all_log", target = "P1")
 
 
 # ----- plot candidates -----
-cdts = data.frame(V13 = c(10,14),
-         V13_2 = c(10,15),
-         D26 = c(26,28),
-         D26_2 = c(24,28),
-         F15 = c(14,17),
-         F7 = c(5,8),
+# 
+cdts = data.frame(V13 = c(10,14),  # mainly cleavage, some splicing
+         # V13_2 = c(10,15),
+         D26 = c(26,28),  # cleavage only
+         D26_2 = c(24,28),  # cleavage and splicing
+         F15 = c(14,17),  # mainly splicing
+         F7 = c(5,8),  # only splicing
          I9 = c(5,10),
          I9_2 = c(9,12),
-         S20 = c(17,22),
+         S20 = c(17,22),  # cleavage and splicing
          S20_2 = c(17,24),
-         N29 = c(28,30),
+         N29 = c(29,30),  # neither
          D11 = c(11,12)) %>% t() %>% as.data.frame()
 
-plotCandidates = function(ProteasomeDB) {
+ProteasomeDB = DBMaster
+
+plotCandidates = function(ProteasomeDB, DB_b5) {
   
-  out = SCS_and_PSP(ProteasomeDB)
+  out = SCS_and_PSP(ProteasomeDB, target = "P1")
   yl = max(out$scs_mean+max(out$scs_sd), out$psp_mean+max(out$psp_mean)) %>% ceiling()
   
   p = data.frame(residue = c(out$residue, out$residue+.2),
@@ -271,10 +368,9 @@ plotCandidates = function(ProteasomeDB) {
        type = "h",
        lwd = 3,
        col = col,
-       ylim = c(-10,yl),
-       xlab = "substrate residue forming SCS-/PSP-P1",
+       ylim = c(-20,yl),
+       xlab = "",
        ylab = "substrate-specific cleavage/splicing strength (%)",
-       sub = "mean +- S.D.",
        axes=F)
   arrows(p$residue, p$p1-p$stdev, p$residue, p$p1+p$stdev,
          length=0.03, angle=90, code=3,
@@ -282,30 +378,44 @@ plotCandidates = function(ProteasomeDB) {
   xlabel = c("0",
              paste(ProteasomeDB$substrateSeq[1] %>% strsplit("") %>% unlist(), seq(1, nchar(ProteasomeDB$substrateSeq[1])), sep = ""))
   # positions
-  text(x = seq(0, nchar(ProteasomeDB$substrateSeq[1])), par("usr")[3]-.3, labels = xlabel,
+  text(x = seq(0, nchar(ProteasomeDB$substrateSeq[1])), par("usr")[3]-5, labels = xlabel,
        srt=90, xpd=T, cex=.5)
   # number of peptides
-  text(x = seq(0, nchar(ProteasomeDB$substrateSeq[1])), par("usr")[3]-5,
+  text(x = seq(0, nchar(ProteasomeDB$substrateSeq[1])), par("usr")[3]-10,
        labels = c("PCP:",out$scs_n), srt=0, xpd=T, cex=.5)
-  text(x = seq(0, nchar(ProteasomeDB$substrateSeq[1])), par("usr")[3]-8,
+  text(x = seq(0, nchar(ProteasomeDB$substrateSeq[1])), par("usr")[3]-15,
        labels = c("PSP:",out$psp_n), srt=0, xpd=T, cex=.5)
   
+  # extract
   y = -1
   cnt.intercept = -1
-  for (i in 1:nrow(cdts)) {
-    segments(x0 = cdts[i,1], y0 = cnt.intercept, x1 = cdts[i,2], y1 = cnt.intercept,
-             lwd = .5)
-    points(x=str_extract(rownames(cdts)[i], "[:digit:]+"), y=cnt.intercept,
-           pch=16, cex=.5)
-    cnt.intercept = cnt.intercept-.8
+  
+  UDB_b5 = DB_b5[-which(duplicated(DB_b5$pepSeq)), ]
+  UDB_b5 = UDB_b5[!str_detect(UDB_b5$positions, ";"), ]
+  
+  out_b5 = SCS_and_PSP(DB_b5, target = "P1")
+  resi = out_b5$residue[out_b5$psp_mean > 0 | out_b5$scs_mean > 0]
+  for (r in resi) {
+    kk = which(UDB_b5$P1 == r)
+    
+    for (i in 1:length(kk)) {
+      pos = str_split(UDB_b5$positions[kk[i]], coll("_"), simplify = T)
+      
+      segments(x0 = as.numeric(pos[1]), y0 = cnt.intercept, x1 = as.numeric(pos[2]), y1 = cnt.intercept,
+               lwd = .5, col = if(length(pos) == 4) {plottingCols[["PSP"]]} else {plottingCols[["PCP"]]})
+      points(x=r, y=cnt.intercept, pch=16, cex=.5)
+      cnt.intercept = cnt.intercept-.5
+      
+    }
+    
   }
   
-  axis(2)
+  axis(2, at = seq(0, round(yl, -1), by=20))
   
 }
 
 pdf(paste0("results/b5/candidates.pdf"), height = 6, width = 12)
-plotCandidates(DB[DB$biological_replicate %in% c(1,2),]) %>% print()
+plotCandidates(DBMaster, DB_b5) %>% print()
 dev.off()
 
 
