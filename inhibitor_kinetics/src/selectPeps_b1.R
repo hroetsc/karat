@@ -10,8 +10,9 @@ library(eulerr)
 
 
 ### INPUT ###
-fs_int = list.files("results/b2/", pattern = "intensities.csv", recursive = T, full.names = T)
-fs_folds = list.files("results/b2/", pattern = "fold-changes.csv", recursive = T, full.names = T)
+fs = list.files("results/b2/", pattern = "DEanalysis_", recursive = T, full.names = T)
+fs_int = fs[grepl("_intensities.csv",fs)]
+fs_folds = fs[grepl("fold-changes.csv",fs)]
 
 
 ### MAIN PART ###
@@ -36,18 +37,24 @@ fold_changes = plyr::ldply(fold_changes)
 
 
 # ----- determine overlap -----
-ovl = list(all = intensities$pepSeq[intensities$.id == "b2_vs_all"],
-           b5 = intensities$pepSeq[intensities$.id == "b2_vs_b5"],
-           b1 = intensities$pepSeq[intensities$.id == "b2_vs_b1"],
-           no = intensities$pepSeq[intensities$.id == "b2_vs_no"]) %>%
+ovl = list("all other" = intensities$pepSeq[intensities$.id == "b2_vs_all"],
+           "ß1" = intensities$pepSeq[intensities$.id == "b2_vs_b1"],
+           "ß5" = intensities$pepSeq[intensities$.id == "b2_vs_b5"],
+           "no inhibitor" = intensities$pepSeq[intensities$.id == "b2_vs_no"]) %>%
   euler(shape="ellipse")
 
 set.seed(123)
-plot(ovl, quantities = T, main = "b2-specific peptides")
+plot(ovl, quantities = T, main = "downregulated upon ß2 inhibition compared to ...")
 
-png("results/b2/overlapBetweenComp.png", height = 8, width = 10, units = "in", res = 300)
-print(plot(ovl, quantities = T, main = "b2-specific peptides"))
+# png("results/b2/overlapBetweenComp.png", height = 8, width = 10, units = "in", res = 300)
+# print(plot(ovl, quantities = T, main = "b2-specific peptides"))
+# dev.off()
+
+png("~/Documents/Studium/Fachvertiefung+BA/Praktikumsbericht/plots/overlap_b2.png",
+    height = 6, width = 8, units = "in", res = 300)
+print(plot(ovl, quantities = T, main = "downregulated upon ß2 inhibition compared to ..."))
 dev.off()
+
 
 # take all peptides and evaluate manually?
 

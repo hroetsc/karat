@@ -21,6 +21,7 @@ library(qvalue)
 # source("src/data_utils.R")
 source("../brainstorming/src/invitroSPI_utils.R")
 
+
 ### HYPERPARAMETERS ###
 # Differential expression parameters
 pval.threshold = 0.1
@@ -31,6 +32,7 @@ fc.threshold = log(2)
 load("data/fold-changes.RData")
 load("data/fold-changes_medpolish.RData")
 load("data/fold-changes_double-log.RData")
+load("data/intensities-4hrs-per-substrate.RData")
 
 INT_4hrs = read.csv("data/intensity-table-4hrs.csv", stringsAsFactors = F)
 intIDX = c(5:20)
@@ -42,6 +44,7 @@ intIDX = c(5:20)
 # QUANT = FC %>% as.data.frame()
 # QUANT = FCm %>% as.data.frame()
 QUANT = FCl %>% as.data.frame()
+# QUANT = FC_perSubs %>% as.data.frame()
 # QUANT = FCsq %>% as.data.frame()
 
 
@@ -74,8 +77,8 @@ comp = list(b5 = list(target = b5_idx,
 suppressWarnings(sapply(paste0("results/",names(comp),"/"), dir.create))
 
 ################################################################################
-subunit = "b5"
-comparison = "b5_vs_no"
+# subunit = "b5"
+# comparison = "b5_vs_no"
 
 # function that does limma DE analysis for given subunit/comparison
 DEanalysis = function(subunit, comparison) {
@@ -158,10 +161,22 @@ DEanalysis = function(subunit, comparison) {
     ggtitle(comparison,
             sub = paste0("differential peptide intensities - down: ",DE_stats$down,", up: ", DE_stats$up)) +
     geom_hline(aes(yintercept = -log10(pval.threshold)), colour = "black") +
-    geom_vline(xintercept = c(-fc.threshold,fc.threshold), colour = "black", linetype = "dashed")
+    geom_vline(xintercept = c(-fc.threshold,fc.threshold), colour = "black", linetype = "dashed") +
+    theme_classic()
   
   Volcanoplots
   
+  
+  # ggsave(filename = "~/Documents/Studium/Fachvertiefung+BA/Praktikumsbericht/plots/volcanoPlot.ps",
+  #        plot = Volcanoplots, device = cairo_ps,
+  #        dpi = "retina", height = 3*5, width = 4*5, units = "cm")
+  # ggsave(filename = "~/Documents/Studium/Fachvertiefung+BA/Praktikumsbericht/plots/volcanoPlot.png",
+  #        plot = Volcanoplots, device = "png",
+  #        dpi = "retina", height = 3*5, width = 4*5, units = "cm")
+  # 
+  # ggsave(filename = "~/Documents/Studium/Fachvertiefung+BA/Praktikumsbericht/plots/qVals.ps",
+  #        plot = plot(qobj), device = cairo_ps,
+  #        dpi = "retina", height = 3*5, width = 4*5, units = "cm")
   
   # ----- extract peptides -----
   kk = which(res$estimate<(-fc.threshold) & res$padj<=pval.threshold)

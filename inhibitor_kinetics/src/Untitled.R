@@ -10,3 +10,6 @@ length(kk) / nrow(dt)
 kk = which(dt$Intensity.C1. > dt$Intensity.C3.)
 length(kk) / nrow(dt)
 
+
+dt[dt$Sequence == "AHSSSAFTITDQVPFSVSVSQLRALDGGQL",]
+dt[dt$Sequence == "AHSSSAFTITDQVPFSVSVSQLRALDGGQL",]

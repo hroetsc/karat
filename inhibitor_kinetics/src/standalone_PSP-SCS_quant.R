@@ -1,10 +1,11 @@
 ### INHIBITOR KINETICS ###
 # description:  substrate-specific cleavage and splicing strength
 #               as defined in Mishto et al. FI 2019
-# input:        quantification results (finalKinetics.csv), selected peptides
-# output:       PSP-P1 and SCS-P1
-#               a) for each position in a substrate
-#               b) PSP-P1 vs. SCS-P1
+# input:        quantification results (finalKinetics.csv), selected peptides,
+#               intensity table to remove synthesis errors
+#               list of peptides to remove (selected manually from plotRawIntens.R output)
+# output:       PSP-P1 and SCS-P1 at different positions
+#               + candidates plotted over substrate length
 # author:       HR
 
 library(dplyr)
@@ -16,12 +17,13 @@ source("../brainstorming/src/invitroSPI_utils.R")
 ### INPUT ###
 # final Kinetics
 DB = read.csv("qiSPI/OUTPUT/TSN5_0+4/finalKinetics.csv", stringsAsFactors = F)
+load("qiSPI/OUTPUT/TSN5_0+4/filteredResults.RData")
 # filtered out synthesis errors
 INTtable = read.csv("data/intensity-table-4hrs.csv", stringsAsFactors = F)
 
 # selected peptides
 selectedPeps = read.csv("results/b5/selectedPeps_intensities.csv", stringsAsFactors = F)
-load("qiSPI/OUTPUT/TSN5_0+4/filteredResults.RData")
+peptidesToRemove = read.table("results/b5/peptides-to-remove.txt")
 
 ### MAIN PART ###
 # ----- preprocessing -----
@@ -40,7 +42,7 @@ names(res)[1] = "sample"
 
 # get conditions
 cond = data.frame(sample = nm,
-                  condition = c("noInh_bio1_tech1", "noInh_bio1_tech2", "noInh_bio2_tech1", "noInh_bio_tech2",
+                  condition = c("noInh_bio1_tech1", "noInh_bio1_tech2", "noInh_bio2_tech1", "noInh_bio2_tech2",
                                 "b5_bio1_tech1", "b5_bio1_tech2", "b5_bio2_tech1", "b5_bio2_tech2",
                                 "b2_bio1_tech1", "b2_bio1_tech2", "b2_bio2_tech1", "b2_bio2_tech2",
                                 "b1_bio1_tech1", "b1_bio1_tech2", "b1_bio2_tech1", "b1_bio2_tech2"),
@@ -59,18 +61,16 @@ no_idx = c(1:4)
 pp = INTtable$pepSeq[rowMeans(INTtable[,4+no_idx]) > 1e05]
 DB = DB[DB$pepSeq %in% pp, ]
 
-# only bioReps that are not b5
-# DB = DB[DB$biological_replicate %in% c(1,2,7,8,5,6), ]
-DB = DB[DB$biological_replicate %in% c(1,2),]
-# intensities at 4 hrs detected in no inhibitor
-DB$intensity = as.numeric(DB$`4`)
-
 DB = DB %>%
   ILredundancy() %>%
   disentangleMultimappers.Type() %>%
   removeMultimappers.Type() %>%
   as.data.frame()
 
+# remove manually identified peptides from list of selected peptides
+selectedPeps = selectedPeps[!gsub("I","L",selectedPeps$pepSeq) %in% gsub("I","L",peptidesToRemove$V1), ]
+
+table(selectedPeps$spliceType)
 
 # ----- resolve multi-mappers -----
 # assign weight to position multi-mappers
@@ -265,6 +265,9 @@ SCS_and_PSP = function(DBMaster,target) {
 }
 
 # ----- plotting -----
+target = "P1"
+DBMaster = DB_b5
+
 plotPSPandSCS = function(DBMaster, name, target) {
   
   out = SCS_and_PSP(DBMaster,target)
@@ -277,37 +280,47 @@ plotPSPandSCS = function(DBMaster, name, target) {
                  col = c(rep(plottingCols["PCP"], nrow(out)),
                          rep(plottingCols["PSP"], nrow(out))))
   
-  pdf(paste0("results/quantPSPandSCS1_", name, ".pdf"),
-      height = 6, width = 12)
+  # pdf(paste0("results/b5/PSP-SCS_", name, ".pdf"), height = 6, width = 12)
+  png("~/Documents/Studium/Fachvertiefung+BA/Praktikumsbericht/plots/SCS+PSP_b5.png",
+      height = 4, width = 10, units = "in", res = 300)
   plot(p1~residue,
        data=p,
        type = "h",
-       lwd = 3,
+       lwd = 4,
        col = col,
-       main = name,
+       # main = name,
        ylim = c(-yl, yl),
        # xlab = "substrate residue forming SCS-/PSP-P1",
        xlab = "",
-       ylab = "substrate-specific cleavage/splicing strength (%)",
+       # ylab = "substrate-specific cleavage/splicing strength (%)",
+       ylab = "cleavage/splicing strength (%)",
        # sub = "mean +- S.D.",
        axes=F)
   arrows(p$residue, p$p1-p$stdev, p$residue, p$p1+p$stdev,
          length=0.03, angle=90, code=3,
-         lty = "solid", lwd = 1, col = p$col)
-  xlabel = c("0",
+         lty = "solid", lwd = 1, col = p$col) %>%
+    suppressWarnings()
+  xlabel = c("",
              paste(DBMaster$substrateSeq[1] %>% strsplit("") %>% unlist(), seq(1, nchar(DBMaster$substrateSeq[1])), sep = ""))
   # positions
   text(x = seq(0, nchar(DBMaster$substrateSeq[1])), par("usr")[3]-.3, labels = xlabel,
        srt=90, xpd=T, cex=.5)
   # number of peptides
-  text(x = seq(0, nchar(DBMaster$substrateSeq[1])), par("usr")[3]-5,
-       labels = c("PCP:",out$scs_n), srt=0, xpd=T, cex=.5)
-  text(x = seq(0, nchar(DBMaster$substrateSeq[1])), par("usr")[3]-8,
-       labels = c("PSP:",out$psp_n), srt=0, xpd=T, cex=.5)
-  axis(2, at = seq(round(-yl,-1),round(yl,-1),10))
+  text(x = seq(0, nchar(DBMaster$substrateSeq[1])), par("usr")[3]-15,
+       labels = c("non-spliced:",out$scs_n), srt=0, xpd=T, cex=.5)
+  text(x = seq(0, nchar(DBMaster$substrateSeq[1])), par("usr")[3]-22,
+       labels = c("spliced:",out$psp_n), srt=0, xpd=T, cex=.5)
+  axis(2, at = seq(round(-yl,-1),round(yl,-1),20))
+  
+  legend("topleft",
+         legend = c("cleavage strength (SCS-P1)", "splicing strength (PSP-P1)"),
+         lty = c("solid","solid"), col = c(plottingCols["PCP"],plottingCols["PSP"]),
+         cex = .7, bty = "n")
   dev.off()
   
-  pdf(paste0("results/quantPSPandSCS2_", name, ".pdf"),
+  
+  
+  pdf(paste0("results/b5/scatterPSP-SCS", name, ".pdf"),
       height = 6, width = 6)
   plot(psp_mean~scs_mean, data = out,
        main = name,
@@ -321,35 +334,29 @@ plotPSPandSCS = function(DBMaster, name, target) {
 }
 
 # ----- execute -----
-plotPSPandSCS(DBMaster = DBMaster, name = "TSN5all", target = "P1")
+
+# intensities at 4 hrs detected in no inhibitor
+# only bioReps that are not b5
+DBMaster_noInh = DBMaster[DBMaster$biological_replicate %in% c(1,2),]
+DBMaster_noInh$intensity = as.numeric(DBMaster_noInh$`4`)
+plotPSPandSCS(DBMaster = DBMaster_noInh, name = "TSN5all", target = "P1")
+
+# plot the same for the b5 intensities
+DBMaster_b5inh = DBMaster[DBMaster$biological_replicate %in% c(3,4),]
+DBMaster_b5inh$intensity = as.numeric(DBMaster_b5inh$`4`)
+plotPSPandSCS(DBMaster = DBMaster_b5inh, name = "TSN5all_b5intens", target = "P1")
 
 # only selected peptides
-DB_b5 = DBMaster[DBMaster$pepSeq %in% selectedPeps$pepSeq, ]
+DB_b5 = DBMaster_noInh[DBMaster_noInh$pepSeq %in% gsub("I","L",selectedPeps$pepSeq), ]
 plotPSPandSCS(DBMaster = DB_b5, name = "TSN5_b5_P1", target = "P1")
 plotPSPandSCS(DBMaster = DB_b5, name = "TSN5_b5_P2", target = "P2")
 plotPSPandSCS(DBMaster = DB_b5, name = "TSN5_b5_P3", target = "P3")
 
-DB_log = DBMaster
-DB_log$intensity = log(DB$intensity+1)
-plotPSPandSCS(DBMaster = DB_log, name = "TSN5all_log", target = "P1")
 
 
-# ----- plot candidates -----
-# 
-cdts = data.frame(V13 = c(10,14),  # mainly cleavage, some splicing
-         # V13_2 = c(10,15),
-         D26 = c(26,28),  # cleavage only
-         D26_2 = c(24,28),  # cleavage and splicing
-         F15 = c(14,17),  # mainly splicing
-         F7 = c(5,8),  # only splicing
-         I9 = c(5,10),
-         I9_2 = c(9,12),
-         S20 = c(17,22),  # cleavage and splicing
-         S20_2 = c(17,24),
-         N29 = c(29,30),  # neither
-         D11 = c(11,12)) %>% t() %>% as.data.frame()
 
-ProteasomeDB = DBMaster
+# ----- plot selected peptides -----
+ProteasomeDB = DBMaster_noInh
 
 plotCandidates = function(ProteasomeDB, DB_b5) {
   
@@ -363,28 +370,31 @@ plotCandidates = function(ProteasomeDB, DB_b5) {
                  col = c(rep(plottingCols["PCP"], nrow(out)),
                          rep(plottingCols["PSP"], nrow(out))))
   
+  png("~/Documents/Studium/Fachvertiefung+BA/Praktikumsbericht/plots/SCS+PSP_all.png",
+      height = 6, width = 10, units = "in", res = 300)
   plot(p1~residue,
        data=p,
        type = "h",
-       lwd = 3,
+       lwd = 4,
        col = col,
-       ylim = c(-20,yl),
+       ylim = c(-50,yl),
        xlab = "",
-       ylab = "substrate-specific cleavage/splicing strength (%)",
+       ylab = "cleavage/splicing strength (%)",
        axes=F)
   arrows(p$residue, p$p1-p$stdev, p$residue, p$p1+p$stdev,
          length=0.03, angle=90, code=3,
-         lty = "solid", lwd = 1, col = p$col)
-  xlabel = c("0",
+         lty = "solid", lwd = 1, col = p$col) %>%
+    suppressWarnings()
+  xlabel = c("",
              paste(ProteasomeDB$substrateSeq[1] %>% strsplit("") %>% unlist(), seq(1, nchar(ProteasomeDB$substrateSeq[1])), sep = ""))
   # positions
   text(x = seq(0, nchar(ProteasomeDB$substrateSeq[1])), par("usr")[3]-5, labels = xlabel,
        srt=90, xpd=T, cex=.5)
   # number of peptides
-  text(x = seq(0, nchar(ProteasomeDB$substrateSeq[1])), par("usr")[3]-10,
-       labels = c("PCP:",out$scs_n), srt=0, xpd=T, cex=.5)
   text(x = seq(0, nchar(ProteasomeDB$substrateSeq[1])), par("usr")[3]-15,
-       labels = c("PSP:",out$psp_n), srt=0, xpd=T, cex=.5)
+       labels = c("non-spliced:",out$scs_n), srt=0, xpd=T, cex=.5)
+  text(x = seq(0, nchar(ProteasomeDB$substrateSeq[1])), par("usr")[3]-20,
+       labels = c("spliced:",out$psp_n), srt=0, xpd=T, cex=.5)
   
   # extract
   y = -1
@@ -401,9 +411,9 @@ plotCandidates = function(ProteasomeDB, DB_b5) {
     for (i in 1:length(kk)) {
       pos = str_split(UDB_b5$positions[kk[i]], coll("_"), simplify = T)
       
-      segments(x0 = as.numeric(pos[1]), y0 = cnt.intercept, x1 = as.numeric(pos[2]), y1 = cnt.intercept,
+      segments(x0 = as.numeric(pos[1])+.1, y0 = cnt.intercept, x1 = as.numeric(pos[2])+.1, y1 = cnt.intercept,
                lwd = .5, col = if(length(pos) == 4) {plottingCols[["PSP"]]} else {plottingCols[["PCP"]]})
-      points(x=r, y=cnt.intercept, pch=16, cex=.5)
+      points(x=r+.1, y=cnt.intercept, pch=16, cex=.3)
       cnt.intercept = cnt.intercept-.5
       
     }
@@ -412,10 +422,28 @@ plotCandidates = function(ProteasomeDB, DB_b5) {
   
   axis(2, at = seq(0, round(yl, -1), by=20))
   
+  legend("topleft",
+         legend = c("cleavage strength (SCS-P1)", "splicing strength (PSP-P1)"),
+         lty = c("solid","solid"), col = c(plottingCols["PCP"],plottingCols["PSP"]),
+         cex = .7, bty = "n")
+  dev.off()
 }
 
 pdf(paste0("results/b5/candidates.pdf"), height = 6, width = 12)
-plotCandidates(DBMaster, DB_b5) %>% print()
+plotCandidates(DBMaster_noInh, DB_b5) %>% print()
 dev.off()
+
+pdf(paste0("results/b5/candidates_b5intens.pdf"), height = 6, width = 12)
+plotCandidates(DBMaster_b5inh, DB_b5) %>% print()
+dev.off()
+
+### OUTPUT ###
+save(selectedPeps, file = "results/b5/selectedPeps_final.RData")
+
+
+
+
+nchar(DB_b5$pepSeq) %>% density() %>% plot()
+nchar(DBMaster_noInh$pepSeq) %>% density() %>% lines()
 
 

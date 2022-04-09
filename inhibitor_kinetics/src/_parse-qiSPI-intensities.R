@@ -6,6 +6,7 @@
 # author:       HR
 
 library(dplyr)
+library(stringr)
 source("qiSPI/SOURCE/qiSPI_utils.R")
 source("../brainstorming/src/invitroSPI_utils.R")
 source("src/data_utils.R")
@@ -34,7 +35,7 @@ names(res)[1] = "sample"
 
 # get conditions
 cond = data.frame(sample = nm,
-                  condition = c("noInh_bio1_tech1", "noInh_bio1_tech2", "noInh_bio2_tech1", "noInh_bio_tech2",
+                  condition = c("noInh_bio1_tech1", "noInh_bio1_tech2", "noInh_bio2_tech1", "noInh_bio2_tech2",
                                 "b5_bio1_tech1", "b5_bio1_tech2", "b5_bio2_tech1", "b5_bio2_tech2",
                                 "b2_bio1_tech1", "b2_bio1_tech2", "b2_bio2_tech1", "b2_bio2_tech2",
                                 "b1_bio1_tech1", "b1_bio1_tech2", "b1_bio2_tech1", "b1_bio2_tech2"),
@@ -117,6 +118,9 @@ intIDX = which(names(INT_0hrs) %in% unique(cond$condition))
 I0 = as.matrix(INT_0hrs[,intIDX])
 I4 = as.matrix(INT_4hrs[,intIDX])
 
+rownames(I0) = INT_0hrs$pepSeq
+rownames(I4) = INT_4hrs$pepSeq
+
 
 # ----- remove synthesis errors -----
 # for no inhibitor: remove everything that has a lower intensity at 4 hrs than at 0 hrs
@@ -136,15 +140,6 @@ INT_0hrs = INT_0hrs[-rem,]
 INT_4hrs = INT_4hrs[-rem,]
 
 table(INT_4hrs$spliceType)
-
-# ----- get substrate degradation -----
-# from Distiller XIC
-# how?!
-# sk = which(INT_0hrs$substrateSeq == INT_0hrs$pepSeq)
-# subsDeg = I4[sk,] - I0[sk,]
-# subsDeg
-# subsDeg/max(I4) * 100
-
 
 # ---- statistics -----
 
@@ -169,8 +164,32 @@ diagnostics = function(M) {
 }
 
 
+# ----- get substrate degradation -----
+# from Distiller XIC
+# how?!
+# sk = which(INT_0hrs$substrateSeq == INT_0hrs$pepSeq)
+# subsDeg = I4[sk,] - I0[sk,]
+# subsDeg
+# subsDeg/max(I4) * 100
+
+
+degraded$degraded_norm = degraded$degraded - min(degraded$degraded) +1
+
+colnames(I4)
+cnames = str_extract_all(colnames(I4), "^[:alnum:]+_bio[:digit:]", simplify = T)
+dg = degraded$degraded_norm[match(cnames, degraded$condition)]
+DEGR = matrix(rep(dg, each=nrow(I4)), nrow = nrow(I4))
 
 # ----- data normalisation -----
+## normalise per mol degraded substrate
+I4_perSubs = I4/DEGR
+I0_perSubs = I0/DEGR
+
+FC_perSubs = ((I4_perSubs-min(I4_perSubs)+1)/(I0_perSubs-min(I0_perSubs)+1)) - 1
+FC_perSubs = FC_perSubs - min(FC_perSubs, na.rm = T)
+FC_perSubs = log(FC_perSubs+1)
+
+
 ## quantile normalisation over all time points/ technical replicates
 ## normalise 4 hrs intensities by the substrate degradation
 
@@ -210,6 +229,8 @@ I4[,b2_idx] = I4[,b2_idx]/q_b2
 
 I0[,b5_idx] = I0[,b5_idx]/q_b5
 I4[,b5_idx] = I4[,b5_idx]/q_b5
+
+# plot(dg~quantiles4)
 
 ## plot 5% quantiles
 quantiles0 = apply(I0, 2, function(x){
@@ -297,6 +318,39 @@ diagnostics(FCm)
 #   x = x-median(x)
 # }) 
 # diagnostics(FCs)
+
+# ----- plot double-log transformed fold changes -----
+library(ggplot2)
+library(stringr)
+
+FCl_tbl = tidyr::gather(as.data.frame(FCl))
+FCl_tbl$condition = str_extract_all(FCl_tbl$key, "^[:alnum:]+", simplify = T)
+
+s = FCl_tbl %>%
+  dplyr::group_by(condition) %>%
+  dplyr::summarise(n = dplyr::n(),
+                   mean = mean(value),
+                   median = median(value),
+                   std = sd(value))
+print.data.frame(s)
+
+theme_set(theme_classic())
+vp = ggplot(FCl_tbl, aes(x = condition, y=value, fill = condition)) +
+  geom_violin(size = .1,  alpha = .8) +
+  stat_summary(fun = mean, fun.min = mean, fun.max = mean,
+               geom = "crossbar", 
+               width = .3,
+               position = position_dodge(width = 4),
+               col = "black") +
+  scale_fill_manual(values = c("black", "lightblue", "purple","gray")) +
+  ylab("double log-transformed fold changes") +
+  theme(legend.position = "none")
+vp
+ggsave(filename = "~/Documents/Studium/Fachvertiefung+BA/Praktikumsbericht/plots/intensityDistr.ps",
+       plot = vp, device = cairo_ps,
+       dpi = "retina", height = 3*5, width = 4*5, units = "cm")
+
+
 
 
 
