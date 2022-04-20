@@ -13,20 +13,26 @@ library(dplyr)
 # Lext: minimal splice-reactant length
 getCis = function(L, N, Lext=1) {
   
-  allCis = sapply(seq(1,L-N), function(i){
+  if (L-1 >= N) {
     
-    sapply(seq(i+Lext-1,N-Lext+i-1), function(j){
+    allCis = sapply(seq(1,L-N), function(i){
       
-      sr2 = N-j+i-1
-      sapply(seq(j+2, L-sr2+1), function(k){
+      sapply(seq(i+Lext-1,N-Lext+i-1), function(j){
         
-        n = k+sr2-1
-        return(paste(i,j,k,n,sep = "_"))
+        sr2 = N-j+i-1
+        sapply(seq(j+2, L-sr2+1), function(k){
+          
+          n = k+sr2-1
+          return(paste(i,j,k,n,sep = "_"))
+        })
       })
     })
-  })
-  
-  CIS = unlist(allCis)
+    
+    CIS = unlist(allCis)
+    
+  } else {
+    CIS = NA
+  }
   
   return(CIS)
 }
@@ -37,27 +43,33 @@ numCis = function(L, N, Lext=1){
 }
 
 
-cis = getCis(L,N)
-nocis = numCis(L,N)
 
 
 # ----- reverse cis -----
 getRevCis = function(L, N, Lext=1) {
   
-  allRevCis = sapply(seq(1,L-N+1), function(k){
+  if (L >= N) {
     
-    sapply(seq(k+Lext-1,N-Lext+k-1), function(n){
+    allRevCis = sapply(seq(1,L-N+1), function(k){
       
-      sr1 = N-n+k-1
-      sapply(seq(n+1, L-sr1+1), function(i){
+      sapply(seq(k+Lext-1,N-Lext+k-1), function(n){
         
-        j = i+sr1-1
-        return(paste(i,j,k,n,sep = "_"))
+        sr1 = N-n+k-1
+        sapply(seq(n+1, L-sr1+1), function(i){
+          
+          j = i+sr1-1
+          return(paste(i,j,k,n,sep = "_"))
+        })
       })
     })
-  })
+    
+    REVCIS = unlist(allRevCis)
+    
+    
+  } else {
+    REVCIS = NA
+  }
   
-  REVCIS = unlist(allRevCis)
   
   return(REVCIS)
 }
@@ -67,6 +79,27 @@ numRevCis = function(L, N, Lext=1){
 }
 
 
-revcis = getRevCis(L,N)
-norevcis = numRevCis(L,N)
+
+# ----- trans -----
+
+getTrans = function(L, N, Lext=1) {
+  
+  allTrans = sapply(seq(1,L-Lext), function(i){
+    
+    sapply(seq(i+Lext-1,N-Lext+i-1), function(j){
+      
+      sr2 = N-j+i-1
+      kmin = if(i-sr2+1 > 0) i-sr2+1 else 1
+      sapply(seq(kmin, j), function(k){
+        
+        n = k+sr2-1
+        return(paste(i,j,k,n,sep = "_"))
+      })
+    })
+  })
+  
+  TRANS = unlist(allTrans)
+  
+  return(TRANS)
+}
 

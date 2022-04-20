@@ -134,7 +134,7 @@ extractPeps = function(df, obs=T) {
     
     CIS = cbind(df$cis, cis_pos) %>%
       na.omit() %>%
-      filter(pos1 >= 1 & pos4 <= L) %>%  # check the all possible function!
+      filter(pos1 >= 1 & pos4 <= L) %>%  # old implementation of all possible function
       mutate(category = if_else(pos1 == 1 & pos4 < L, "cat1", NA),
              category = if_else(pos1 > 1 & pos4 == L, "cat2", category),
              category = if_else(pos1 == 1 & pos4 == L, "cat3", category),
@@ -144,7 +144,7 @@ extractPeps = function(df, obs=T) {
     
     REVCIS = cbind(df$revCis, revcis_pos) %>%
       na.omit() %>%
-      filter(pos3 >= 1 & pos2 <= L) %>%  # check the all possible function!
+      filter(pos3 >= 1 & pos2 <= L) %>%  # old implementation of all possible function
       mutate(category = if_else(pos3 == 1 & pos2 < L, "cat1", NA),
              category = if_else(pos3 > 1 & pos2 == L, "cat2", category),
              category = if_else(pos3 == 1 & pos2 == L, "cat3", category),
