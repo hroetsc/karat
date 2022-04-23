@@ -2,7 +2,7 @@
 # description:  positions of fwd/rev cis spliced peptides of length N generated from substrate of length L
 #               number of spliced/non-spliced peptides of length N generated from substrate L
 # input:        substrate length L, product length N
-# output:       positions, number of peptides
+# output:       positions, number of peptides, number of splice sites
 # author:       HPR
 
 library(dplyr)
@@ -49,6 +49,7 @@ numCis = function(L, N, Lext=1){
   }
 }
 
+# PSP containing either N or C term of substrate
 numCis_1term = function(L, N, Lext=1){
   if (L-1 >= N) {
     return((N-2*Lext+1)*(L-N))
@@ -57,6 +58,7 @@ numCis_1term = function(L, N, Lext=1){
   }
 }
 
+# PSP containing both N and C term of substrate
 numCis_bothterm = function(L, N, Lext=1){
   if (L-1 >= N) {
     return((N-2*Lext+1))
@@ -65,6 +67,15 @@ numCis_bothterm = function(L, N, Lext=1){
   }
 }
 
+# number of sequences with restricted intervening sequence length
+# Imax: maximum intervening sequence length
+numCis_maxInterv = function(L, N, Imax, Lext=1){
+  if (L-1 >= N) {
+    return((L+3-N-Imax)*(N-2*Lext+1)*(Imax-2) + 0.5*(N-2*Lext+1)*(Imax-3)*(Imax-2))
+  } else {
+    return(0)
+  }
+}
 
 # number of splice sites
 numCis_sites = function(L,N,Lext=1) {
@@ -77,6 +88,7 @@ numCis_sites = function(L,N,Lext=1) {
 
 
 # ----- reverse cis -----
+# peptide positions
 getRevCis = function(L, N, Lext=1) {
   
   if (L >= N) {
@@ -114,6 +126,7 @@ numRevCis = function(L, N, Lext=1){
   }
 }
 
+# PSP containing either N or C term of substrate
 numRevCis_1term = function(L, N, Lext=1){
   if (L >= N) {
     return((N-2*Lext+1)*(L-N+1))
@@ -122,9 +135,20 @@ numRevCis_1term = function(L, N, Lext=1){
   }
 }
 
+# PSP containing both N and C term of substrate
 numRevCis_bothterm = function(L, N, Lext=1){
   if (L >= N) {
     return((N-2*Lext+1))
+  } else {
+    return(0)
+  }
+}
+
+# number of sequences with restricted intervening sequence length
+# Imax: maximum intervening sequence length
+numRevCis_maxInterv = function(L, N, Imax, Lext=1){
+  if (L-1 >= N & Imax >= N) {
+    return((N-2*Lext+1)*((L-Imax+1)*(Imax-N+1) + 0.5*(Imax-N)*(Imax-N+1)))
   } else {
     return(0)
   }
@@ -141,7 +165,7 @@ numRevCis_sites = function(L,N,Lext=1) {
 
 
 # ----- trans -----
-
+# peptide positions
 getTrans = function(L, N, Lext=1) {
   
   allTrans = sapply(seq(1,L-Lext), function(i){
@@ -150,7 +174,6 @@ getTrans = function(L, N, Lext=1) {
       
       sr2 = N-j+i-1
       kmin = if(i-sr2+1 > 0) i-sr2+1 else 1
-      print(i-sr2+1)
       sapply(seq(kmin, j), function(k){
         
         n = k+sr2-1
@@ -164,29 +187,50 @@ getTrans = function(L, N, Lext=1) {
   return(TRANS)
 }
 
+L=15
+N=7
+trans = getTrans(L,N)
+length(trans)
 
-sapply(1:length(i), function(x){
-  any(c(i[x]:j[x]) %in% c(k[x]:n[x]))
-}) %>%
-  all()
+pos = str_split_fixed(trans, coll("_"), Inf)
+which(pos[,3] == "1") %>% length()
 
-k2 = which(pos[,2]==pos[,3])
-
-
+# number of peptides
 numTrans = function(L, N, Lext=1){
   
-  x = L^2+L*(1-2*N)+(1+Lext)*(2*N-Lext-2)
-  part1 = (1/8)*x^2 + (1/4)*x
-  part2 = 0.5*(N-1)*(-1*Lext+L-1)*(-1*Lext+L)
+  # approach 1
+  # part 1: j <= N-2
+  part1a = 0.5*(N-Lext-1)*(N^2-N-2*Lext*N+4*Lext-2)
+  part1b = 0.25*(2*N-4*Lext+2)*(N-Lext-1)*(N-Lext)
+  
+  part1 = (part1a+part1b)
+  print(part1a)
+  print(part1b)
+  print(part1)
+  
+  # part 2: J > N-2
+  part2 = (L-N+1)*(N-2*Lext+1)*(N-1)
+  print(part2)
+  
+  print(part1+part2)
+  print(length(trans))
+  
+  # approach 2
+  # part 1
+  part1_nodep = 0.5*(L-Lext)*(-1*Lext^2+N^2-3*N+3*Lext)
+  part1_linear = 0.25*(-2*Lext+3)*(L-Lext)*(L-Lext+1)
+  part1_square = (-1/12)*((L-Lext)*(L-Lext+1)*(2*L-2*Lext+1))
+  part1e = part1_nodep+part1_linear+part1_square
+  
+  # part 2
+  part2_nodep = (L-Lext)*(-1*N*Lext+Lext+N-1)
+  part2_linear = 0.5*(N-1)*(L-Lext)*(L-Lext+1)
+  part2e = part2_nodep+part2_linear
   
   return(part1+part2)
 }
 
 
-L=15
-N=5
-trans = getTrans(L,N)
-length(trans)
 
 numTrans(L,N)
 
