@@ -1,6 +1,7 @@
 ### PCPS brainstorming ###
 # description:  positions of fwd/rev cis spliced peptides of length N generated from substrate of length L
-#               number of spliced/non-spliced peptides of length N generated from substrate L
+#               number of spliced/non-spliced peptides of length N generated from substrate(s) L
+#               number of possible splice sites
 # input:        substrate length L, product length N
 # output:       positions, number of peptides, number of splice sites
 # author:       HPR
@@ -221,6 +222,25 @@ numTrans = function(L, N, Lext=1){
     
     return(x)
      
+  } else {
+    return(0)
+  }
+}
+
+# number of PSPs containing either N or C term
+numTrans_1term = function(L,N,Lext=1) {
+  minN = if (N%%2 == 0) N/2 else (N+1)/2
+  if (L >= minN) {
+    return(N*(1-2*Lext+N))
+  } else {
+    return(0)
+  }
+}
+
+# number of PSPs containing both substrate termini
+numTrans_bothterm = function(L,N,Lext=1) {
+  if (L <= N-Lext) {
+    return(1-2*Lext+N)
   } else {
     return(0)
   }
