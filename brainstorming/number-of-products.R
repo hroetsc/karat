@@ -71,7 +71,8 @@ numCis_bothterm = function(L, N, Lext=1){
 # Imax: maximum intervening sequence length
 numCis_maxInterv = function(L, N, Imax, Lext=1){
   if (L-1 >= N) {
-    return((L+3-N-Imax)*(N-2*Lext+1)*(Imax-2) + 0.5*(N-2*Lext+1)*(Imax-3)*(Imax-2))
+    # return((L+3-N-Imax)*(N-2*Lext+1)*(Imax-2) + 0.5*(N-2*Lext+1)*(Imax-3)*(Imax-2))
+    return(-0.5*(-2+Imax)*(1-2*Lext+N)*(-3+Imax-2*L+2*N))
   } else {
     return(0)
   }
@@ -148,7 +149,8 @@ numRevCis_bothterm = function(L, N, Lext=1){
 # Imax: maximum intervening sequence length
 numRevCis_maxInterv = function(L, N, Imax, Lext=1){
   if (L-1 >= N & Imax >= N) {
-    return((N-2*Lext+1)*((L-Imax+1)*(Imax-N+1) + 0.5*(Imax-N)*(Imax-N+1)))
+    # return((N-2*Lext+1)*((L-Imax+1)*(Imax-N+1) + 0.5*(Imax-N)*(Imax-N+1)))
+    return((1+Imax-N)*(1-0.5*Imax+L-0.5*N)*(1-2*Lext+N))
   } else {
     return(0)
   }
@@ -168,70 +170,85 @@ numRevCis_sites = function(L,N,Lext=1) {
 # peptide positions
 getTrans = function(L, N, Lext=1) {
   
-  allTrans = sapply(seq(1,L-Lext), function(i){
+  if (L+Lext >= N) {
     
-    sapply(seq(i+Lext-1,N-Lext+i-1), function(j){
+    allTrans = sapply(seq(Lext,N-Lext), function(sr1){
       
-      sr2 = N-j+i-1
-      kmin = if(i-sr2+1 > 0) i-sr2+1 else 1
-      sapply(seq(kmin, j), function(k){
-        
-        n = k+sr2-1
-        return(paste(i,j,k,n,sep = "_"))
-      })
+      # SR1
+      Is = seq(1, L-sr1+1)
+      Js = Is+sr1-1
+      
+      # SR2
+      Ks = seq(1,L-N+sr1+1)
+      Ns = Ks+N-sr1-1
+      
+      SR1 = paste(Is,Js, sep = "_")
+      SR2 = paste(Ks,Ns, sep = "_")
+      # all combinations
+      PEP = outer(SR1, SR2, paste, sep="_") %>% as.vector()
+      
+      # get overlap
+      idx = sapply(PEP, function(x){
+        y = strsplit(x, "_") %>% unlist() %>% as.numeric()
+        z = (max(y)-min(y)+1 <= N-Lext) & (max(y)-min(y)+1 > N/2) | any(y[1]:y[2] %in% y[3]:y[4])
+        return(z)
+      }) %>% which()
+
+      return(PEP[idx])
+      
     })
-  })
-  
-  TRANS = unlist(allTrans)
+    
+    TRANS = unlist(allTrans) %>% as.vector()
+    
+  } else {
+    TRANS = NA
+  }
   
   return(TRANS)
 }
 
-L=15
-N=7
-trans = getTrans(L,N)
-length(trans)
-
-pos = str_split_fixed(trans, coll("_"), Inf)
-which(pos[,3] == "1") %>% length()
 
 # number of peptides
 numTrans = function(L, N, Lext=1){
   
-  # approach 1
-  # part 1: j <= N-2
-  part1a = 0.5*(N-Lext-1)*(N^2-N-2*Lext*N+4*Lext-2)
-  part1b = 0.25*(2*N-4*Lext+2)*(N-Lext-1)*(N-Lext)
-  
-  part1 = (part1a+part1b)
-  print(part1a)
-  print(part1b)
-  print(part1)
-  
-  # part 2: J > N-2
-  part2 = (L-N+1)*(N-2*Lext+1)*(N-1)
-  print(part2)
-  
-  print(part1+part2)
-  print(length(trans))
-  
-  # approach 2
-  # part 1
-  part1_nodep = 0.5*(L-Lext)*(-1*Lext^2+N^2-3*N+3*Lext)
-  part1_linear = 0.25*(-2*Lext+3)*(L-Lext)*(L-Lext+1)
-  part1_square = (-1/12)*((L-Lext)*(L-Lext+1)*(2*L-2*Lext+1))
-  part1e = part1_nodep+part1_linear+part1_square
-  
-  # part 2
-  part2_nodep = (L-Lext)*(-1*N*Lext+Lext+N-1)
-  part2_linear = 0.5*(N-1)*(L-Lext)*(L-Lext+1)
-  part2e = part2_nodep+part2_linear
-  
-  return(part1+part2)
+  if (L+Lext >= N) {
+    # # multiply (L-sr1+1)*(L-N+sr1+1) over [Lext, N-Lext] out and separate terms
+    # # not dependent on sr1
+    # not_dependent = (N-2*Lext+1)*(L^2+2*L-L*N-N+1)
+    # # linear dependency on sr1
+    # linear_dependent = 0.5*N^2*(N-2*Lext+1)
+    # # square dependency on sr1
+    # square_part = (1/6)*Lext*(Lext+1)*(2*Lext+1) - (1/6)*(N-Lext-1)*((N-Lext-1)+1)*(2*(N-Lext-1)+1)
+    # print(square_part)
+    # all_sliding = not_dependent + linear_dependent - square_part
+    # print(all_sliding)
+    
+    # all_sliding = -(1/6)*Lext*(1+Lext)*(1+2*Lext) - (1/6)*(1+2*Lext-2*N)*(Lext-N)*(1+Lext-N) + (1+L)*(1+L-N)*(1-2*Lext+N) + 0.5*N^2*(1-2*Lext+N)
+    # print(all_sliding)
+    
+    all_sliding = (1/6)*(-1+2*Lext-N)*(-6-12*L-6*L^2-2*Lext+2*Lext^2+7*N+6*L*N-2*Lext*N-N^2)
+    # print(all_sliding)
+    # get number of cis PSPs and PCPs
+    spliced = numCis(L,N) + numRevCis(L,N)
+    # print(numCis(L,N))
+    # print(numRevCis(L,N))
+    # print(spliced)
+    nonspliced = if (numPCP(L,N) > 0) numPCP(L,N) else 1
+    # print((N-2*Lext+1)*nonspliced)
+    
+    # subtract from all sliding windows
+    x = all_sliding - spliced - (N-2*Lext+1)*nonspliced
+    return(x)
+     
+  } else {
+    return(0)
+  }
 }
 
-
-
+L=50
+N=20
+trans = getTrans(L,N)
+length(trans)
 numTrans(L,N)
 
 
@@ -239,28 +256,36 @@ numTrans(L,N)
 
 getTransProt = function(L1, L2, N, Lext=1) {
   
-  transProt = sapply(seq(Lext, N-Lext), function(sr1){
-    sr2 = N-sr1
+  if (min(L1,L2)+Lext >= N) {
     
-    # SR1 from protein 1, SR2 from protein 2
-    I1 = seq(1,L1-sr1+1)
-    J1 = sapply(I1, function(i1){
-      j1 = sr1+i1-1
+    transProt = sapply(seq(Lext, N-Lext), function(sr1){
+      sr2 = N-sr1
+      
+      # SR1 from protein 1, SR2 from protein 2
+      I1 = seq(1,L1-sr1+1)
+      J1 = sapply(I1, function(i1){
+        j1 = sr1+i1-1
+      })
+      I2 = seq(1,L2-sr2+1)
+      J2 = sapply(I2, function(i2){
+        j2 = sr2+i2-1
+      })
+      
+      PROT1 = paste(I1,J1,sep = "_")
+      PROT2 = paste(I2,J2,sep = "_")
+      P1 = outer(PROT1,PROT2,paste,sep="+") %>% as.vector()
+      
+      return(P1)
+      
     })
-    I2 = seq(1,L2-sr2+1)
-    J2 = sapply(I2, function(i2){
-      j2 = sr2+i2-1
-    })
     
-    PROT1 = paste(I1,J1,sep = "_")
-    PROT2 = paste(I2,J2,sep = "_")
-    P1 = outer(PROT1,PROT2,paste,sep="+") %>% as.vector()
+    TRANSPROT = unlist(transProt)
     
-    return(P1)
+  } else {
     
-  })
-  
-  TRANSPROT = unlist(transProt)
+    TRANSPROT = NA
+    
+  }
   
   return(TRANSPROT)
 }
@@ -269,16 +294,24 @@ getTransProt = function(L1, L2, N, Lext=1) {
 # L1: length of protein 1
 # L2: length of protein 2
 numTransProt = function(L1, L2, N, Lext=1) {
-  
-  # multiply (L1-sr1+1)*(L2-N+sr1+1) over [Lext, N-Lext] out and separate terms
-  # not dependent on sr1
-  not_dependent = (N-2*Lext+1)*(L1*L2+L2-L1*N+L1-N+1)
-  # linear dependency on sr1
-  linear_dependent = 0.5*N*(-L2+L1+N)*(N-2*Lext+1)
-  # square dependency on sr1
-  square_part = (1/6)*Lext*(Lext+1)*(2*Lext+1) - (1/6)*(N-Lext-1)*((N-Lext-1)+1)*(2*(N-Lext-1)+1)
-  
-  return(not_dependent + linear_dependent - square_part)
+  if (min(L1,L2)+Lext >= N) {
+    
+    # # multiply (L1-sr1+1)*(L2-N+sr1+1) over [Lext, N-Lext] out and separate terms
+    # # not dependent on sr1
+    # not_dependent = (N-2*Lext+1)*(L1*L2+L2-L1*N+L1-N+1)
+    # # linear dependency on sr1
+    # linear_dependent = 0.5*N*(-L2+L1+N)*(N-2*Lext+1)
+    # # square dependency on sr1
+    # square_part = (1/6)*Lext*(Lext+1)*(2*Lext+1) - (1/6)*(N-Lext-1)*((N-Lext-1)+1)*(2*(N-Lext-1)+1)
+    # # not_dependent + linear_dependent - square_part
+    
+    x = (-1/6)*Lext*(1+Lext)*(1+2*Lext) - (1/6)*(1+2*Lext-2*N)*(Lext-N)*(1+Lext-N) + (1+L1)*(1+L2-N)*(1-2*Lext+N) + 0.5*N*(L1-L2+N)*(1-2*Lext+N)
+    
+    return(x)
+    
+  } else {
+    return(0)
+  }
 }
 
 
@@ -314,7 +347,7 @@ numPCP = function(L,N) {
 
 numCleavageSites = function(L,N) {
   if (L > N) {
-    return(L-N+1)
+    return(L-N)
   } else {
     return(0)
   }
