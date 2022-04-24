@@ -71,7 +71,6 @@ numCis_bothterm = function(L, N, Lext=1){
 # Imax: maximum intervening sequence length
 numCis_maxInterv = function(L, N, Imax, Lext=1){
   if (L-1 >= N) {
-    # return((L+3-N-Imax)*(N-2*Lext+1)*(Imax-2) + 0.5*(N-2*Lext+1)*(Imax-3)*(Imax-2))
     return(-0.5*(-2+Imax)*(1-2*Lext+N)*(-3+Imax-2*L+2*N))
   } else {
     return(0)
@@ -149,7 +148,6 @@ numRevCis_bothterm = function(L, N, Lext=1){
 # Imax: maximum intervening sequence length
 numRevCis_maxInterv = function(L, N, Imax, Lext=1){
   if (L-1 >= N & Imax >= N) {
-    # return((N-2*Lext+1)*((L-Imax+1)*(Imax-N+1) + 0.5*(Imax-N)*(Imax-N+1)))
     return((1+Imax-N)*(1-0.5*Imax+L-0.5*N)*(1-2*Lext+N))
   } else {
     return(0)
@@ -170,7 +168,8 @@ numRevCis_sites = function(L,N,Lext=1) {
 # peptide positions
 getTrans = function(L, N, Lext=1) {
   
-  if (L+Lext >= N) {
+  minN = if (N%%2 == 0) N/2 else (N+1)/2
+  if (L >= minN) {
     
     allTrans = sapply(seq(Lext,N-Lext), function(sr1){
       
@@ -211,33 +210,15 @@ getTrans = function(L, N, Lext=1) {
 # number of peptides
 numTrans = function(L, N, Lext=1){
   
-  if (L+Lext >= N) {
-    # # multiply (L-sr1+1)*(L-N+sr1+1) over [Lext, N-Lext] out and separate terms
-    # # not dependent on sr1
-    # not_dependent = (N-2*Lext+1)*(L^2+2*L-L*N-N+1)
-    # # linear dependency on sr1
-    # linear_dependent = 0.5*N^2*(N-2*Lext+1)
-    # # square dependency on sr1
-    # square_part = (1/6)*Lext*(Lext+1)*(2*Lext+1) - (1/6)*(N-Lext-1)*((N-Lext-1)+1)*(2*(N-Lext-1)+1)
-    # print(square_part)
-    # all_sliding = not_dependent + linear_dependent - square_part
-    # print(all_sliding)
+  minN = if (N%%2 == 0) N/2 else (N+1)/2
+  if (L >= minN) {
     
-    # all_sliding = -(1/6)*Lext*(1+Lext)*(1+2*Lext) - (1/6)*(1+2*Lext-2*N)*(Lext-N)*(1+Lext-N) + (1+L)*(1+L-N)*(1-2*Lext+N) + 0.5*N^2*(1-2*Lext+N)
-    # print(all_sliding)
+    # multiply (L-sr1+1)*(L-N+sr1+1) over [Lext, N-Lext] out and separate terms
+    # then subtract number of PSPs and (N-2Lext+1)*number of PCPs
+    # simplify with Mathematica
     
-    all_sliding = (1/6)*(-1+2*Lext-N)*(-6-12*L-6*L^2-2*Lext+2*Lext^2+7*N+6*L*N-2*Lext*N-N^2)
-    # print(all_sliding)
-    # get number of cis PSPs and PCPs
-    spliced = numCis(L,N) + numRevCis(L,N)
-    # print(numCis(L,N))
-    # print(numRevCis(L,N))
-    # print(spliced)
-    nonspliced = if (numPCP(L,N) > 0) numPCP(L,N) else 1
-    # print((N-2*Lext+1)*nonspliced)
+    x = -1 + (2/3)*Lext^3+Lext^2*(-1-N) + (5/6)*N + N^2 - (5/6)*N^3 + L*(-1+Lext*(2-2*N)+N^2) + Lext*((7/3)-3*N+2*N^2)
     
-    # subtract from all sliding windows
-    x = all_sliding - spliced - (N-2*Lext+1)*nonspliced
     return(x)
      
   } else {
@@ -245,18 +226,25 @@ numTrans = function(L, N, Lext=1){
   }
 }
 
-L=50
-N=20
-trans = getTrans(L,N)
-length(trans)
-numTrans(L,N)
+# number of splice sites
+numTrans_sites = function(L,N,Lext=1) {
+  
+  minN = if (N%%2 == 0) N/2 else (N+1)/2
+  if (L >= minN) {
+    return(L*(-1+N) + (1/2)*(-2+Lext-Lext^2 + 3*N - N^2))
+  } else {
+    return(0)
+  }
+}
 
 
 # ----- trans-spliced from two different proteins -----
-
+# L1: length of protein 1
+# L2: length of protein 2
 getTransProt = function(L1, L2, N, Lext=1) {
   
-  if (min(L1,L2)+Lext >= N) {
+  minN = if (N%%2 == 0) N/2 else (N+1)/2
+  if (min(L1,L2) >= minN) {
     
     transProt = sapply(seq(Lext, N-Lext), function(sr1){
       sr2 = N-sr1
@@ -291,19 +279,16 @@ getTransProt = function(L1, L2, N, Lext=1) {
 }
 
 
-# L1: length of protein 1
-# L2: length of protein 2
 numTransProt = function(L1, L2, N, Lext=1) {
-  if (min(L1,L2)+Lext >= N) {
+  
+  minN = if (N%%2 == 0) N/2 else (N+1)/2
+  if (min(L1,L2) >= minN) {
     
-    # # multiply (L1-sr1+1)*(L2-N+sr1+1) over [Lext, N-Lext] out and separate terms
-    # # not dependent on sr1
-    # not_dependent = (N-2*Lext+1)*(L1*L2+L2-L1*N+L1-N+1)
-    # # linear dependency on sr1
-    # linear_dependent = 0.5*N*(-L2+L1+N)*(N-2*Lext+1)
-    # # square dependency on sr1
-    # square_part = (1/6)*Lext*(Lext+1)*(2*Lext+1) - (1/6)*(N-Lext-1)*((N-Lext-1)+1)*(2*(N-Lext-1)+1)
-    # # not_dependent + linear_dependent - square_part
+    # multiply (L1-sr1+1)*(L2-N+sr1+1) over [Lext, N-Lext] out and separate terms
+    # not dependent on sr1
+    # linear dependency on sr1
+    # square dependency on sr1)
+    # not_dependent + linear_dependent - square_part
     
     x = (-1/6)*Lext*(1+Lext)*(1+2*Lext) - (1/6)*(1+2*Lext-2*N)*(Lext-N)*(1+Lext-N) + (1+L1)*(1+L2-N)*(1-2*Lext+N) + 0.5*N*(L1-L2+N)*(1-2*Lext+N)
     
