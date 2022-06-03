@@ -19,6 +19,7 @@ library(data.table)
 library(bettermc)
 library(lsa)
 library(readxl)
+options(dplyr.summarise.inform = FALSE)
 source("src/invitroSPI_utils.R")
 source("src/plotting_utils.R")
 source("src/_extract-aa.R")
@@ -175,7 +176,8 @@ getCosineSim = function(dbF, sr) {
 
 getWithinSRsimilarity = function(descriptor, features, cntDS) {
   # extract amino acids for both SRs
-  DB =  Qual[which(Qual$spliceType != "PCP"), ]
+  # DB =  Qual[which(Qual$spliceType != "PCP"), ]
+  DB = Qual
   DB = left_join(DB, extract_aminoacids(tbl = DB, onlyValidSeq = T))
   
   DBlarge = DB %>%
@@ -206,12 +208,21 @@ getWithinSRsimilarity = function(descriptor, features, cntDS) {
     arrange(residue) %>%  # make sure that residues have the same order
     as.data.table()
   
+  PCP = DBfeat %>%
+    filter(spliceType == "PCP") %>%
+    group_by(substrateID, spliceType) %>%
+    filter(residue %in% c("P4","P3","P2","P1")) %>%
+    distinct(substrateID, spliceType, sr1, residue, .keep_all = T) %>%
+    arrange(residue) %>%  # make sure that residues have the same order
+    as.data.table()
+  
   # for each feature: get similarity distributions
   # iterate features
   pdf(paste0("results/SR1vsSR2/features/",cntDS,"_median.pdf"), height = 40, width = 12)
   par(mfrow = c(10,length(types)))
   
   meanVars = lapply(features, function(f){
+    print(f)
     
     sr1Var = SR1 %>%
       group_by(substrateID, spliceType) %>%
@@ -223,14 +234,20 @@ getWithinSRsimilarity = function(descriptor, features, cntDS) {
       rename(cntFeature = f) %>%
       summarise(featDistr = getCosineSim(dbF = cntFeature, sr = sr2))
     
+    pcpVar = PCP %>%
+      group_by(substrateID) %>%
+      rename(cntFeature = f) %>%
+      summarise(featDistr = getCosineSim(dbF = cntFeature, sr = sr1))
+    
+    cntpcp = unlist(pcpVar$featDistr)
     mus = sapply(types, function(t){
       cntsr1 = unlist(sr1Var$featDistr[sr1Var$spliceType == t])
       cntsr2 = unlist(sr2Var$featDistr[sr1Var$spliceType == t])
-      boxplot(cntsr1, cntsr2,
-              col = c("gray", "lightblue"), ylim = c(0,1),
+      boxplot(cntsr1, cntsr2, cntpcp,
+              col = c("gray", "lightblue", plottingCols["PCP"]), ylim = c(0,1),
               main = f, sub = paste0(t, " - SR1: ", mean(cntsr1) %>% round(4), ", SR2: ", mean(cntsr2) %>% round(4)))
       
-      return(c(SR1 = median(cntsr1,na.rm = T), SR2 = median(cntsr2, na.rm = T)))
+      return(c(SR1 = median(cntsr1,na.rm = T), SR2 = median(cntsr2, na.rm = T), PCP = median(cntpcp, na.rm = T)))
     })
     
     return(mus)
@@ -333,14 +350,14 @@ for (cntDS in allDS) {
   load(paste0("results/SR1vsSR2/features/",cntDS,"_median.RData"))
   meanVarsDF = meanVars %>%
     plyr::ldply() %>%
-    mutate(SR = rep(c("SR1","SR2"), length(meanVars))) %>%
+    mutate(SR = rep(c("SR1","SR2","PCP"), length(meanVars))) %>%
     tidyr::gather(spliceType, meanvar, -.id, -SR)
   
-  cnt = ggplot(meanVarsDF, aes(x = spliceType, y = meanvar, fill = SR)) +
-    geom_split_violin() +
-    stat_summary(fun = median, fun.min = median, fun.max = median, geom = "crossbar",  width = .2,
-                 position = position_dodge(width = .2)) +
-    scale_fill_manual(labels = c("SR1","SR2"), values = c("gray", "lightblue")) +
+  cnt = ggplot(meanVarsDF, aes(x = spliceType, y = meanvar, fill = factor(SR, levels = c("SR1","SR2","PCP")))) +
+    geom_violin(draw_quantiles = 0.5, position = position_dodge(.5)) +
+    # stat_summary(fun = median, fun.min = median, fun.max = median, geom = "crossbar",  width = .2,
+    #              position = position_dodge(width = .2)) +
+    scale_fill_manual("",labels = c("SR1","SR2","PCP"), values = c("gray", "lightblue", plottingCols[["PCP"]])) +
     ylim(c(0,1))+
     ylab("median cosine similarity within SR1/2 features") +
     ggtitle("within-SR feature similarity", subtitle = paste0(cntDS, ", n = ", length(meanVars)))
