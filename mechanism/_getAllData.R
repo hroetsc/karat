@@ -36,6 +36,9 @@ KU = Kinetics %>%
   distinct(substrateID, pepSeq, .keep_all = T)
 table(KU$substrateID,KU$spliceType)
 table(KU$spliceType)
+table(KU$productType)
+
+KU$substrateID %>% unique() %>% length()
 
 # ----- parse qualitative data set -----
 nm = intersect(names(ProteasomeDB_SciData), names(ProteasomeDB_BScthesisQuant))
@@ -52,6 +55,9 @@ PU = ProteasomeDB %>%
   distinct(substrateID, pepSeq, .keep_all = T)
 table(PU$substrateID,PU$spliceType)
 table(PU$spliceType)
+table(PU$productType)
+
+PU$substrateID %>% unique() %>% length()
 
 # ----- parse proteins -----
 

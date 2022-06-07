@@ -108,11 +108,12 @@ DBQuant[,SRnames][DBQuant[,SRnames] == ""] = "X"
 # get all positions for all SR1s in each substrate
 # input: either PSPs or PCPs
 # DB = DBQuant[DBQuant$productType == "PSP", ]  # tmp!
-getSubstrateCounts = function(DB) {
+getSubstrateCounts = function(DB, substrateOnly = T) {
   
   subSeqs = DB$substrateID %>% unique()
   
   allFeatures = lapply(c(1:length(subSeqs)), function(i){
+    
     S = DB$substrateSeq[DB$substrateID == subSeqs[i]][1]
     k = which(DB$substrateID == subSeqs[i])
     
@@ -123,62 +124,79 @@ getSubstrateCounts = function(DB) {
       as.data.frame()
     SRTBL[SRTBL == ""] = "X"
     
-    # get counts of peptides for each position
-    cnt = DB[k,]
     
-    allRES = lapply(pos$residue, function(r){
-      if (target == "P1"){
-        kk = which(cnt$posP1 == r)
-      } else if (target == "P1_") {
-        kk = which(cnt$posP1_ == r)
-      }
+    if (!substrateOnly) {
       
-      if (length(kk) > 0) {
-        dd = cnt[kk,interesting_residues]
+      # get counts of peptides for each position
+      cnt = DB[k,]
+      
+      allRES = lapply(pos$residue, function(r){
+        if (target == "P1"){
+          kk = which(cnt$posP1 == r)
+        } else if (target == "P1_") {
+          kk = which(cnt$posP1_ == r)
+        }
         
-        res = lapply(1:ncol(dd),function(p){
-          length(dd[p][dd[p]==SRTBL[r,p]])
-        })
-        res = as.numeric(unlist(res))
-        names(res) = interesting_residues
-        return(res)
+        if (length(kk) > 0) {
+          dd = cnt[kk,interesting_residues]
+          
+          res = lapply(1:ncol(dd),function(p){
+            length(dd[p][dd[p]==SRTBL[r,p]])
+          })
+          res = as.numeric(unlist(res))
+          names(res) = interesting_residues
+          return(res)
+        }
+        
+      }) %>%
+        plyr::ldply() %>%
+        t() %>%
+        melt() %>%
+        rename(residue = Var2, position = Var1, count = value) %>%
+        mutate(residue = as.numeric(residue))
+      
+      master = melt(as.matrix(SRTBL)) %>%
+        rename(position = Var2, residue = Var1, aa = value) %>%
+        mutate(position = as.character(position)) %>%
+        left_join(allRES)
+      
+      master$count[is.na(master$count)] = 0
+      # normalise aa-wise
+      # master = master %>%
+      #   group_by(aa) %>%
+      #   mutate(count = count/sum(count)) %>%
+      #   ungroup()
+      
+      master$pos = do.call(paste, c(master[c("position","aa")], sep=";"))
+      
+      master2 = master %>%
+        select(-aa, -position) %>%
+        tidyr::spread(pos, count)
+      master2[is.na(master2)] = 0
+      missing = allCombos[! allCombos %in% names(master2)]
+      
+      if (length(missing) > 0) {
+        app = matrix(0, nrow = nrow(master2), ncol = length(missing))
+        colnames(app) = missing
+        master2 = cbind(master2, app) %>% as.data.frame()
+      }
+      master2 = master2[,c("residue", allCombos)]
+      
+      return(master2)
+      
+    } else {
+      
+      master = matrix(0, nrow = nrow(SRTBL), ncol = length(allCombos))
+      colnames(master) = allCombos
+      
+      for (j in 1:nrow(SRTBL)) {
+        cntN = paste(colnames(SRTBL),SRTBL[j,],sep = ";")
+        master[j,cntN] = 1
       }
       
-    }) %>%
-      plyr::ldply() %>%
-      t() %>%
-      melt() %>%
-      rename(residue = Var2, position = Var1, count = value) %>%
-      mutate(residue = as.numeric(residue))
-    
-    master = melt(as.matrix(SRTBL)) %>%
-      rename(position = Var2, residue = Var1, aa = value) %>%
-      mutate(position = as.character(position)) %>%
-      left_join(allRES)
-    
-    master$count[is.na(master$count)] = 0
-    # normalise aa-wise
-    # master = master %>%
-    #   group_by(aa) %>%
-    #   mutate(count = count/sum(count)) %>%
-    #   ungroup()
-    
-    master$pos = do.call(paste, c(master[c("position","aa")], sep=";"))
-    
-    master2 = master %>%
-      select(-aa, -position) %>%
-      tidyr::spread(pos, count)
-    master2[is.na(master2)] = 0
-    missing = allCombos[! allCombos %in% names(master2)]
-    
-    if (length(missing) > 0) {
-      app = matrix(0, nrow = nrow(master2), ncol = length(missing))
-      colnames(app) = missing
-      master2 = cbind(master2, app) %>% as.data.frame()
+      return(cbind(c(1:nchar(S)),master) %>% as.data.frame())
     }
-    master2 = master2[,c("residue", allCombos)]
     
-    return(master2)
   })
   names(allFeatures) = subSeqs
   
@@ -191,9 +209,9 @@ PCPsubstrateCounts = getSubstrateCounts(DBQuant[DBQuant$productType == "PCP", ])
 # ----- match arguments and prediction targets -----
 
 PSPfeatures = plyr::ldply(PSPsubstrateCounts)
-names(PSPfeatures)[1] = "substrateID"
+names(PSPfeatures)[1:2] = c("substrateID","residue")
 PCPfeatures = plyr::ldply(PCPsubstrateCounts)
-names(PCPfeatures)[1] = "substrateID"
+names(PCPfeatures)[1:2] = c("substrateID","residue")
 
 # check which combinations never occur and remove them to reduce the matrix sparsity
 kpsp = which(colSums(PSPfeatures[,allCombos]) == 0)
@@ -202,25 +220,26 @@ rem = intersect(kpsp, kpcp)
 # P1; X --> do not remove!
 # all other combinations occur
 
+
 # add prediction target
-PSPall = left_join(PSPfeatures, yPredDF %>% select(substrateID, residue, psp_mean)) %>%
+PSPall = left_join(PSPfeatures, yPredDF %>% dplyr::select(substrateID, residue, psp_mean)) %>%
   rename(y = psp_mean)
-PCPall = left_join(PCPfeatures, yPredDF %>% select(substrateID, residue, scs_mean)) %>%
+PCPall = left_join(PCPfeatures, yPredDF %>% dplyr::select(substrateID, residue, scs_mean)) %>%
   rename(y = scs_mean)
 
 
 # ----- estimate lambda via cross-validation ------
 
 # lambdas = c(seq(0.1,1,0.1), seq(2,10,1), seq(20,100,10), seq(200,1000,100))
-lambdas = c(seq(0.01,3,0.01))
+lambdas = c(seq(0.05,3,0.05))
 fold = 10
-noBags = 5e03
-split = 0.8
+noBags = 5e02
+split = 0.9
 
 determineWeights = function(ALL, nm) {
   
-  png(paste0("results/ProteaSMM/SMManalytical_",nm,"_",target,"_",features_from,"feat.png"), height = 13, width = 13, units = "in", res = 300)
-  par(mfrow = c(2,2))
+  png(paste0("results/ProteaSMM/SMManalytical_",nm,"_",target,"_",features_from,"feat.png"), height = 20, width = 13, units = "in", res = 300)
+  par(mfrow = c(3,2))
   
   # get data
   X = ALL[,allCombos] %>% as.matrix()
@@ -243,14 +262,8 @@ determineWeights = function(ALL, nm) {
     MSE_lambda = sapply(lambdas, function(a){
       
       # determine weights using the train set
-      A = diag(a, nrow = ncol(Xtrain), ncol = ncol(Xtrain))
-      w = ((inv(t(Xtrain)%*%Xtrain + A))%*%t(Xtrain))%*%t_train
-      
-      # system.time(pinv(Xtrain)%*%t_train)
-      # system.time(ginv(Xtrain)%*%t_train)
-      
-      # iv = ginv(Xtrain)%*%t_train
-      # iv2 = ((inv(t(Xtrain)%*%Xtrain + A))%*%t(Xtrain))%*%t_train
+      A = diag(a, nrow = ncol(Xtrain), ncol = nrow(Xtrain))
+      w = (ginv(Xtrain)+A)%*%t_train
       
       # get the loss on the test data set
       t_pred = Xtest%*%w
@@ -273,6 +286,7 @@ determineWeights = function(ALL, nm) {
   # determine weights using bagging strategy
   MSEs = rep(NA, noBags)
   allParams = matrix(NA, nrow = noBags, ncol = ncol(X))
+  bestL = 1
   
   pb = txtProgressBar(min = 0, max = noBags, style = 3)
   for (b in 1:noBags) {
@@ -284,8 +298,9 @@ determineWeights = function(ALL, nm) {
     t_cnt = t[kk]
     
     # get weights
-    A = diag(bestL, nrow = ncol(Xcnt), ncol = ncol(Xcnt))
-    w = ((inv(t(Xcnt)%*%Xcnt + A))%*%t(Xcnt))%*%t_cnt
+    A = diag(bestL, nrow = ncol(Xcnt), ncol = nrow(Xcnt))
+    # w = ((inv(t(Xcnt)%*%Xcnt + A))%*%t(Xcnt))%*%t_cnt
+    w = (ginv(Xcnt)+A)%*%t_cnt
     
     # make prediction
     t_pred = X[-kk,]%*%w
@@ -295,8 +310,14 @@ determineWeights = function(ALL, nm) {
   }
   
   # keep best 5 % and average over the parameters
-  cutoff = quantile(MSEs, 0.1)
+  cutoff = quantile(MSEs, 1)
   ii = which(MSEs <= cutoff)
+  
+  # plot the bags
+  plot(x = c(1:noBags), y = MSEs, type = "l",
+       main = "bootstrap aggregation",
+       xlab = "bag", ylab = "MSE")
+  abline(h = cutoff, lty = "dashed", col = "red")
   
   params = colMeans(allParams[ii,])
   names(params) = allCombos
@@ -338,229 +359,4 @@ determineWeights(PSPall, nm = "PSP")
 
 # only meaningful for SCS-P1 and SR1
 determineWeights(PCPall, nm = "PCP")
-
-
-
-
-
-# ---- crap from here -----
-
-
-
-
-
-
-
-
-
-# ----- analytical solution -----
-# multiple regression
-
-AnalyticalSolution = function(ALL, nm) {
-  M = ALL[,allCombos] %>% as.matrix()
-  M[is.na(M)] = 0
-  
-  # log-transform
-  # M = log(M+1)
-  
-  t = ALL$y
-  
-  w = ((t(M)%*%M)%*%t(M))*t
-  
-  DF = rowMeans(w) %>% as.data.frame()
-  
-  DF = cbind(DF, str_split_fixed(rownames(DF),";",Inf))
-  names(DF) = c("mean_weight","position","aa")
-  DFt = DF %>% tidyr::spread(position,mean_weight)
-  DFt = as.matrix(DFt[,interesting_residues])
-  rownames(DFt) = AAchar_here_sorted
-  DFt = DFt[AAchar_here, ]
-  
-  png(paste0("results/ProteaSMM/analytical_",nm,"_",target,".png"), height = 8, width = 18, units = "in", res = 300)
-  par(mfrow = c(1,3))
-  mm = log(t(DFt)+1)
-  image(mm, axes = F, col = r,
-        main = "log mean of regression weights",
-        sub = "low: blue, high: red")
-  axis(2, at = seq(0,1,1/(length(AAchar_here)-1)), labels = AAchar_here)
-  axis(1, at = seq(0,1,1/(length(interesting_residues)-1)), labels = interesting_residues)
-  
-  boxplot(DFt,
-          main = "multiple linear regression weights", sub = "distribution over positions")
-  
-  cl = hdbscan(DFt, minPts = 2)
-  plot(cl$hc,
-       main = "HDBSCAN* Hierarchy", xlab = "on linear regression weights",
-       labels = gsub("L","I/L",rownames(DFt)))
-  
-  dev.off()
-  
-}
-
-AnalyticalSolution(PSPall, nm = "PSP")
-AnalyticalSolution(PCPall, nm = "PCP")
-
-# ----- empirical solution -----
-# maxIter = 100
-
-EmpricialSolution = function(ALL, nm, maxIter=500) {
-  
-  set.seed(42)
-  # w0 = runif(n = length(allCombos), min = -100, max = 100)
-  w0 = rnorm(n = length(allCombos), mean = 0, sd = 50)
-  
-  M = ALL[,allCombos] %>% as.matrix()
-  y_pred = ALL$y
-  
-  matmult = function(M,w) {
-    return(M%*%w)
-  }
-  loss = function(w) {
-    y = matmult(M,w)
-    return(sum((y-y_pred)^2))
-  }
-  
-  
-  MSEs = rep(NA, maxIter)
-  params = list()
-  pb = txtProgressBar(min = 0, max = maxIter, style = 3)
-  for (i in 1:maxIter) {
-    setTxtProgressBar(pb, i)
-    opt = optim(par = w0, loss, method = "SANN", control = list(maxit = 500))
-    if (opt$convergence == 0) {
-      params[[i]] = opt$par
-    }
-    MSEs[i] = opt$value
-  }
-  
-  png(paste0("results/ProteaSMM/empirical_",nm,"_",target,".png"), height = 13, width = 13, units = "in", res = 300)
-  par(mfrow = c(2,2))
-  
-  cutoff = quantile(MSEs, 0.05)
-  plot(MSEs, type = "l",
-       xlab = "# optimisation", ylab = "mean squared error",
-       main = "empirical optimisation of regression weights",
-       sub = "optimisation method: simulated annealing")
-  abline(h = cutoff, lty = "dashed", col = "red")
-  
-  # only keep the 5% best parameters
-  keepParam = params[which(MSEs <= cutoff)] %>%
-    plyr::ldply()
-  keepParam = apply(keepParam,2,mean)
-  
-  DF = cbind(keepParam, str_split_fixed(allCombos,";",Inf)) %>%
-    as.data.frame()
-  names(DF) = c("mean_weight","position","aa")
-  DFt = DF %>% tidyr::spread(position,mean_weight)
-  DFt = as.matrix(DFt[,interesting_residues])
-  DFt = apply(DFt,2,as.numeric)
-  rownames(DFt) = AAchar_here_sorted
-  DFt = DFt[AAchar_here, ]
-  
-  mm = t(DFt)
-  image(mm, axes = F, col = r,
-        main = "optimisation weights",
-        sub = "low: blue, high: red")
-  axis(2, at = seq(0,1,1/(length(AAchar_here)-1)), labels = AAchar_here)
-  axis(1, at = seq(0,1,1/(length(interesting_residues)-1)), labels = interesting_residues)
-  
-  boxplot(DFt, main = "multiple linear regression weights", sub = "summed over positions")
-  
-  cl = hdbscan(DFt, minPts = 2)
-  plot(cl$hc,
-       main = "HDBSCAN* Hierarchy", xlab = "on linear regression weights",
-       labels = gsub("L","I/L",rownames(DFt)))
-  
-  dev.off()
-  
-  
-}
-
-EmpricialSolution(PSPall, "PSP", maxIter = 1000)
-EmpricialSolution(PCPall, "PCP", maxIter = 1000)
-
-
-
-
-# ----- junk -----
-meanE = apply(MSE_lambda,2,mean) %>% log10()
-stdE = apply(MSE_lambda,2,sd) %>% log10()
-bestL = lambdas[which.min(meanE)]
-
-plot(x = log10(lambdas), y = meanE,
-     pch = 16,
-     main = "parameter optimisation: λ", sub = paste0("CV folds: ", fold),
-     xlab = "log10 λ", ylab = "log10 CV mean squared error")
-arrows(log10(lambdas), meanE-stdE,
-       log10(lambdas), meanE+stdE, length=0.03, angle=90, code=3)
-abline(v = log10(bestL), lty = "dashed", col = "red")
-
-
-
-w = rnorm(n = length(allCombos), mean = 0, sd = 5)
-matmult = function(M,w,lambda) {
-  return(M%*%w + lambda)
-}
-
-
-
-
-Phi = function(Sia, measured_k) {
-  Sk = s0 + colSums(Sia)
-  return(sum((Sk-measured_k)^2))
-}
-
-Psi = function(Sia, measured_k, lambda) {
-  return(Phi(Sia, measured_k) + lambda*sum(Sia^2))
-}
-
-same_pos = function(tbl) {
-  
-  if (! all(AA %in% names(tbl))) {
-    k = which(! AA %in% names(tbl))
-    
-    for (i in 1:length(k)) {
-      tbl = append(tbl, 0, k[i]-1)
-    }
-    names(tbl) = AA
-  }
-  
-  return(tbl)
-}
-
-# input: either PCPs or PSPs
-getAAfrequency = function(DB) {
-  
-  getFreq = function(df) {
-    freq = apply(df[,SRnames],2,function(x){
-      y = table(x)
-      names(y)[names(y) == ""] = "X"
-      z = same_pos(y)
-      z = z[match(AAchar_here,names(z))]
-      return(z)
-    }) %>%
-      as.matrix()
-    rownames(freq) = AAchar_here
-    freq[is.na(freq)] = 0
-    
-    # bring in table format
-    Fs = melt(freq)
-    
-    Fs = Fs[Fs$Var2 %in% interesting_residues,]
-    Fs$pos = do.call(paste, c(Fs[c("Var2","Var1")], sep="-"))
-    Fs$value = (Fs$value - min(Fs$value)) / (max(Fs$value) - min(Fs$value))
-    
-    return(Fs[c("pos","value")])
-  }
-  
-  subIDs = DB$substrateID %>% unique()
-  allFreq = lapply(subIDs, function(s){
-    getFreq(DB[DB$substrateID == s, ])
-  })
-  
-  return(allFreq)
-}
-
-PSPfreq = getAAfrequency(DBQuant[DBQuant$productType == "PSP", ])
-PCPfreq = getAAfrequency(DBQuant[DBQuant$productType == "PCP", ])
 

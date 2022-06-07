@@ -122,7 +122,7 @@ resolve_multimapper = function(ProteasomeDB) {
 
 # ----- compute SCS-P1 and PSP-P1 -----
 
-SCS_and_PSP = function(DBMaster,target) {
+SCS_and_PSP = function(DBMaster,target,meanOverBio=T,Zscale=F) {
   
   pcpidx = which(DBMaster$productType == "PCP")
   pspidx = which(DBMaster$productType == "PSP")
@@ -180,26 +180,60 @@ SCS_and_PSP = function(DBMaster,target) {
   psp = apply(str_split(d$psp_mean, pattern = "_", simplify = T), 2, as.numeric) %>%
     as.data.frame()
   
-  scs = sweep(scs, 2, colSums(scs,na.rm = T), FUN = "/")
-  d$scs_mean = rowMeans(scs,na.rm = T) * 100
-  d$scs_sd = apply(scs,1,sd,na.rm=T) * 100
-  
-  psp = sweep(psp, 2, colSums(psp,na.rm = T), FUN = "/")
-  d$psp_mean = rowMeans(psp,na.rm = T) * 100
-  d$psp_sd = apply(psp,1,sd,na.rm=T) * 100
+  if (meanOverBio) {
+    if (!Zscale) {
+      scs = sweep(scs, 2, colSums(scs,na.rm = T), FUN = "/")
+      psp = sweep(psp, 2, colSums(psp,na.rm = T), FUN = "/")
+    } else {
+      scs = apply(scs,2,function(x){
+        return((x - min(x)) / (max(x)-min(x)))
+      })
+      psp = apply(psp,2,function(x){
+        return((x - min(x)) / (max(x)-min(x)))
+      })
+    }
+    
+    d$scs_mean = rowMeans(scs,na.rm = T) * 100
+    d$scs_sd = apply(scs,1,sd,na.rm=T) * 100
+    
+    d$psp_mean = rowMeans(psp,na.rm = T) * 100
+    d$psp_sd = apply(psp,1,sd,na.rm=T) * 100
+    
+  } else {
+    if (!Zscale) {
+      scs = sweep(scs, 2, colSums(scs,na.rm = T), FUN = "/") * 100
+      psp = sweep(psp, 2, colSums(psp,na.rm = T), FUN = "/") * 100
+    } else {
+      scs = apply(scs,2,function(x){
+        return(((x - min(x,na.rm = T)) / (max(x,na.rm = T)-min(x,na.rm = T)))*100)
+      })
+      psp = apply(psp,2,function(x){
+        return(((x - min(x,na.rm = T)) / (max(x,na.rm = T)-min(x,na.rm = T)))*100)
+      })
+    }
+    
+    scs[is.na(scs)] = 0
+    d$scs_mean = apply(scs,1,paste,collapse = ";")
+    d$scs_sd = 0
+    
+    psp[is.na(psp)] = 0
+    d$psp_mean = apply(psp,1,paste,collapse = ";")
+    d$psp_sd = 0
+  }
   
   d[is.na(d)] = 0
-  
   return(d)
-  
 }
 
 # ----- iterate substrate sequences -----
 
-SCSandPSP_allSubs = function(DB, target) {
+SCSandPSP_allSubs = function(DB, target,meanOverBio=T,Zscale=F) {
   
   subs = DB$substrateID %>% unique()
   
+  print("resolving multimappers")
+  
+  print("extracting coordinates")
   DBaa = extract_coordinates(DB)
   DBMaster = inner_join(DB, DBaa, by=c("pepSeq", "positions")) %>%
     unique() %>%
@@ -207,11 +241,11 @@ SCSandPSP_allSubs = function(DB, target) {
            substrateID = substrateID.x,
            substrateSeq = substrateSeq.x)
   
-  DBMaster = resolve_multimapper(DBMaster)
   DBMaster$productType = toupper(DBMaster$productType)
   
+  print("calculating SCS and PSP-P1")
   out = lapply(subs, function(x){
-    SCS_and_PSP(DBMaster[DBMaster$substrateID == x, ], target)
+    SCS_and_PSP(DBMaster[DBMaster$substrateID == x, ], target,meanOverBio,Zscale)
   })
   
   names(out) = subs

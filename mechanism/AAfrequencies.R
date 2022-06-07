@@ -26,13 +26,17 @@ qymax = q[2]
 
 ### INPUT ###
 load("data/invitroSPI.RData")
+load("../../proteinsPCPS/new/data/aSPIre.RData")
 load("data/randomDB_smart.RData")  # tmp!
+rndDB_poly = rndDB
+load("../../proteinsPCPS/new/data/randomDB.RData")
 
 ### MAIN PART ###
 suppressWarnings(dir.create("results/AAFreqs/"))
 
 # ----- preprocessing -----
-DB = ProteasomeDB %>%
+nm = intersect(names(ProteasomeDB), names(Kinetics))
+DB = rbind(ProteasomeDB[,nm],Kinetics[,nm]) %>%
   ILredundancy() %>%
   disentangleMultimappers.Type() %>%
   removeMultimappers.Type() %>%
@@ -40,19 +44,23 @@ DB = ProteasomeDB %>%
   removeMultimappers.AA() %>%
   uniquePeptides()
 
-randomDB = rndDB %>%
+randomDB = rbind(rndDB_poly,rndDB) %>%
   ILredundancy() %>%
   disentangleMultimappers.Type() %>%
   removeMultimappers.Type() %>%
   disentangleMultimappers.AA() %>%
   removeMultimappers.AA() %>%
   uniquePeptides()
+
+table(DB$spliceType)
+table(DB$productType)
+table(randomDB$spliceType)
 
 # ---------- relevant info ----------
 # get normalised tables
 # all tables should contain the same amino acids
 AA = c("A","D","E","F","G","H","K","L","N","P","Q","R","S","T","V","W","Y", "M", "C")
-AAchar = c("P","G","A","V","I","L","M","F","Y","W","H","R","K","D","E","N","Q","S","T","C")
+AAchar = c("P","G","C","A","V","L","M","F","Y","W","H","R","K","D","E","N","Q","S","T")
 # AA = AA[order(AA)]
 
 # positions
@@ -297,7 +305,8 @@ plotAAfreqs_pos = function(position, db) {
                                                        frequency < lower - 1.5 * IQR)])) %>%
     dplyr::ungroup()
   
-  f$aa = factor(f$aa, levels = AAchar[-which(AAchar == "I")])
+  f$aa = gsub("L","I/L",f$aa)
+  f$aa = factor(f$aa, levels = gsub("L","I/L",AAchar))
   aaFreqs = f %>%
     ggplot(aes(x = aa, fill = type)) +
     geom_boxplot(aes(lower = lower,
@@ -336,13 +345,15 @@ for (p in SRnames) {
 }
 dev.off()
 
-cairo_ps(filename = "results/AAFreqs/AAfreq_P1.ps", onefile = T,
-         fallback_resolution = 600, width = 10, height = 4)
+# cairo_ps(filename = "results/AAFreqs/AAfreq_P1.ps", onefile = T,
+#          fallback_resolution = 600, width = 10, height = 4)
+png("results/AAFreqs/AAfreq_P1.png",width = 10, height = 4, res = 600, units = "in")
 plotAAfreqs_pos(position = "P1", db)
 dev.off()
 
-cairo_ps(filename = "results/AAFreqs/AAfreq_P1_.ps", onefile = T,
-         fallback_resolution = 600, width = 10, height = 4)
+# cairo_ps(filename = "results/AAFreqs/AAfreq_P1_.ps", onefile = T,
+#          fallback_resolution = 600, width = 10, height = 4)
+png("results/AAFreqs/AAfreq_P1_.png",width = 10, height = 4, res = 600, units = "in")
 plotAAfreqs_pos(position = "P1_", db)
 dev.off()
 

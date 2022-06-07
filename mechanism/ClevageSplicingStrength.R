@@ -31,22 +31,28 @@ suppressWarnings(dir.create("results/SCS+PSP/"))
 
 # ----- preprocessing -----
 polypeps = Kinetics %>%
+  disentangleMultimappers.Type() %>%
   tidyr::separate_rows(digestTimes, intensities, sep=";") %>%
   rename(digestTime = digestTimes,
          intensity = intensities) %>%
   mutate(intensity = as.numeric(intensity),
          digestTime = as.numeric(digestTime)) %>%
   filter(digestTime == 4) %>%
-  ILredundancy()
+  ILredundancy() %>%
+  resolve_multimapper() %>%
+  tidyr::separate_rows(positions, sep = ";")
 
 proteins = proteins %>%
+  disentangleMultimappers.Type() %>%
   tidyr::separate_rows(digestTimes, intensities, sep=";") %>%
   rename(digestTime = digestTimes,
          intensity = intensities) %>%
   mutate(intensity = as.numeric(intensity),
          digestTime = as.numeric(digestTime)) %>%
   filter(digestTime %in% c(3,4)) %>%
-  ILredundancy()
+  ILredundancy() %>%
+  resolve_multimapper() %>%
+  tidyr::separate_rows(positions, sep=";")
 
 randomQuant = randomQuant %>%
   ILredundancy()
@@ -156,9 +162,9 @@ randomQuant_down = randomQuant[sample(seq(1,nrow(randomQuant)), x), ] %>%
 # targets = c("P4", "P3", "P2", "P1", "P1_", "P2_", "P3_", "P4_")
 targets = c("P1", "P1_")
 sapply(targets, function(t){
-  # getPlots(DB = ALL, target = t, suffix = "_true")
+  getPlots(DB = polypeps, target = t, suffix = "_PolypepTrueLim", limited = T)
   getPlots(DB = ALL, target = t, suffix = "_trueLim", limited = T)
-  # getPlots(DB = randomQuant_down, target = t, suffix = "_random")
+  getPlots(DB = randomQuant_down, target = t, suffix = "_random")
 })
 
 
@@ -167,7 +173,7 @@ sapply(targets, function(t){
 # get amino acid composition of substrates
 AA = c("A","D","E","F","G","H","K","L","N","P","Q","R","S","T","V","W","Y", "M", "C")
 AAchar = c("P","G","A","V","I","L","M","F","Y","W","H","R","K","D","E","N","Q","S","T","C")
-DB = Kinetics
+DB = ALL
 
 same_pos = function(tbl) {
   

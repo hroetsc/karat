@@ -67,6 +67,8 @@ fetchSRs = function(df) {
     removeMultimappers.Type() %>%
     uniquePeptides()
   
+  df_filter$pepSeq %>% unique() %>% length() %>% print()
+  
   pos = str_split_fixed(df_filter$positions,coll("_"),Inf)[,c(1:4)]
   pos = apply(pos,2,as.numeric) %>% as.data.frame()
   names(pos) = c("pos1","pos2","pos3","pos4")
@@ -124,7 +126,7 @@ poq = ggplot(Qpolypeps_SR, aes(x=len, y = n, fill = sr)) +
   xlab("splice-reactant length (aa residues)") +
   ylab("counts") +
   ggtitle("polypeptides - quantitative data set")
-ggsave(filename = "results/termini/singleAASR2/SRlenAtTerm_quantPolypeps.png", plot = po, height = 5, width = 5, dpi = "retina")
+ggsave(filename = "results/termini/singleAASR2/SRlenAtTerm_quantPolypeps.png", plot = poq, height = 5, width = 5, dpi = "retina")
 
 
 # determine kinetics of peptides with 1/2 aa SR2
