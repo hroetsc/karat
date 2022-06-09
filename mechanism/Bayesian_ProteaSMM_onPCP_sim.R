@@ -24,7 +24,7 @@ X = DATA$X
 
 # t = DATA$t
 t = rowMeans(DATA$t, na.rm = T) %>% as.matrix()
-t = t/100
+t = log(t/100)
 
 # only the polypeptides
 k = grep("MM", DATA$substrateIDs)
@@ -40,13 +40,14 @@ numParam = ncol(X)+1
 
 ### MAIN PART ###
 # ---- generate in silico data set -----
-tsample = log10(X%*%runif(n = ncol(X), min = 0, max = 0.5))
+tsample = X%*%runif(n = ncol(X), min = 0, max = 0.5)
 density(tsample) %>% plot()
 
 ptheor = ginv(X)%*%t
-ptheor = (0.5-0.01)*(ptheor - min(ptheor)) / (max(ptheor) - min(ptheor)) 
-ttheor = log10(X%*%ptheor)
+ptheor = (0.8-0.1)*(ptheor - min(ptheor)) / (max(ptheor) - min(ptheor)) + 0.1
+ttheor = X%*%log(ptheor)
 density(ttheor) %>% plot()
+density(t) %>% lines()
 
 simulated = list(X = X,
                  scores = ptheor,
@@ -62,12 +63,11 @@ Niter = 2*10**5
 # change prior according to models
 # set prior: initial conditions followed by parameters
 mini = rep(0,numParam)  # 1 parameter more than required by model --> sigma
-maxi = rep(0.8,numParam)
+maxi = rep(1,numParam)
 mini[length(mini)] = 0
 maxi[length(maxi)] = 5 # initial sigma
 
 # ----- plotting analytics -----
-
 plotChain <- function(chain){
   
   # define parameters
@@ -107,9 +107,9 @@ plotChain <- function(chain){
   # compute likelihood
   tsim = matrix(NA,dim(param)[1],nrow(t))
   for(i in 1:dim(param)[1]){
-    tsim[i,] = log10(X%*%p[i,])
-    tsim[i,which(tsim[i,]<0)] = 0
-    tsim[i,which(tsim[i,]>1)] = 1
+    tsim[i,] = X%*%log(p[i,])
+    # tsim[i,which(tsim[i,]<0)] = 0
+    # tsim[i,which(tsim[i,]>1)] = 1
   }
   
   
@@ -157,9 +157,9 @@ likelihoodFun <- function(param){
   sigma = param[length(param)]  # sd of prior
   p = param[-length(param)]  # parameters to infer
   
-  tsim = log10(X%*%p)
-  tsim[which(tsim<0)] = 0
-  tsim[tsim>1] = 1
+  tsim = X%*%log(p)
+  # tsim[which(tsim<0)] = 0
+  # tsim[tsim>1] = 1
   
   
   SD = sigma
@@ -190,15 +190,15 @@ settings <- list(iterations = Niter,
                  nrChains = 1,
                  Z = NULL,  # starting population
                  startValue=3,  # number of chains
-                 pSnooker = 0.1,  # probability of Snooker update
+                 pSnooker = 0.01,  # probability of Snooker update
                  burnin = 0,  # number of iterations as burn in (not recorded)
                  thin = 10,  # thinning parameter
                  f = 2.38,  # scaling factor gamma
                  eps = 0.01,  # small number to avoid singularity
                  parallel = NULL,
                  pGamma1 = 0.1,  # probability determining the frequency with which the scaling is set to 1 
-                 eps.mult = 2,  # random term (multiplicative error)
-                 eps.add = 0.3,  # random term
+                 eps.mult = 0.3,  # random term (multiplicative error)
+                 eps.add = 0.0,  # random term
                  zUpdateFrequency = 1,
                  currentChain = 1,
                  message = TRUE)
@@ -225,4 +225,4 @@ for(ii in 1:100){
   
 }
 
-
+save(out, file=paste(folderN,"/out.RData",sep=""))

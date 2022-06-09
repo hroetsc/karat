@@ -28,11 +28,13 @@ t = log(t/100)
 
 # only the polypeptides
 k = grep("MM", DATA$substrateIDs)
+# k = sample(grep("MM", DATA$substrateIDs), 50)
 
 X = X[k,]
 t = t[k,] %>% as.matrix()
 
 folderN = str_replace_all(inpFolder, "data/ProteaSMM/", "results/Bayesian_ProteaSMM/")
+folderN = "results/Bayesian_ProteaSMM/PCP_SR1feat_P1_logModel_Gamma05_epsMult001_v2/"
 suppressWarnings(dir.create(folderN))
 
 numRep = ncol(t)
@@ -40,32 +42,32 @@ numParam = ncol(X)+1
 
 ### MAIN PART ###
 # ---- generate in silico data set -----
-tsample = X%*%runif(n = ncol(X), min = 0, max = 0.5)
-density(tsample) %>% plot()
+# tsample = X%*%runif(n = ncol(X), min = 0, max = 0.5)
+# density(tsample) %>% plot()
+# 
+# ptheor = ginv(X)%*%t
+# ptheor = (0.8-0.1)*(ptheor - min(ptheor)) / (max(ptheor) - min(ptheor)) + 0.1
+# ttheor = X%*%log(ptheor)
+# density(ttheor) %>% plot()
+# density(t) %>% lines()
+# 
+# simulated = list(X = X,
+#                  scores = ptheor,
+#                  t = ttheor)
+# save(simulated, file = "results/Bayesian_ProteaSMM/PCP_SR1feat_P1_proofRealDistr/logP_simulatedData.RData")
 
-ptheor = ginv(X)%*%t
-ptheor = (0.8-0.1)*(ptheor - min(ptheor)) / (max(ptheor) - min(ptheor)) + 0.1
-ttheor = X%*%log(ptheor)
-density(ttheor) %>% plot()
-density(t) %>% lines()
-
-simulated = list(X = X,
-                 scores = ptheor,
-                 t = ttheor)
-save(simulated, file = "results/Bayesian_ProteaSMM/PCP_SR1feat_P1_proofRealDistr/logP_simulatedData.RData")
-
-scores = ptheor
-t = ttheor
+# scores = ptheor
+# t = ttheor
 
 # ---- settings -----
 Niter = 2*10**5
 
 # change prior according to models
 # set prior: initial conditions followed by parameters
-mini = rep(0,numParam)  # 1 parameter more than required by model --> sigma
-maxi = rep(1,numParam)
+mini = rep(-.2,numParam)  # 1 parameter more than required by model --> sigma
+maxi = rep(2,numParam)
 mini[length(mini)] = 0
-maxi[length(maxi)] = 5 # initial sigma
+maxi[length(maxi)] = 10 # initial sigma
 
 # ----- plotting analytics -----
 
@@ -165,17 +167,17 @@ likelihoodFun <- function(param){
   
   SD = sigma
   likelihood = sum(dnorm(x=tsim,mean=t,sd=SD,log=TRUE))
-
+  
   if(is.na(likelihood) | !is.finite(likelihood)){
     likelihood = -10**11
   }
-
-
+  
+  
   # k = which(tsim<0 | tsim>1)
   # if(length(k)>0){
   #   likelihood = likelihood-length(k)*10000
   # }
-
+  
   return(likelihood)
 }
 
@@ -185,20 +187,22 @@ likelihoodFun <- function(param){
 prior <- createUniformPrior(mini, maxi)
 bayesianSetup <- createBayesianSetup(likelihood = likelihoodFun, prior = prior)
 
+folderN = "results/Bayesian_ProteaSMM/PCP_SR1feat_P1_logModel_server6/"
+suppressWarnings(dir.create(folderN))
+
 # initialize and run sampler
 settings <- list(iterations = Niter,
                  consoleUpdates = 5000,
                  nrChains = 1,
                  Z = NULL,  # starting population
                  startValue=3,  # number of chains
-                 pSnooker = 0.01,  # probability of Snooker update
+                 pSnooker = 1e-06,  # probability of Snooker update
                  burnin = 0,  # number of iterations as burn in (not recorded)
                  thin = 10,  # thinning parameter
                  f = 2.38,  # scaling factor gamma
-                 eps = 0.01,  # small number to avoid singularity
-                 parallel = NULL,
+                 eps = 1e-06,  # small number to avoid singularity
                  pGamma1 = 0.1,  # probability determining the frequency with which the scaling is set to 1 
-                 eps.mult = 0.3,  # random term (multiplicative error)
+                 eps.mult = 0.1,  # random term (multiplicative error)
                  eps.add = 0.0,  # random term
                  zUpdateFrequency = 1,
                  currentChain = 1,

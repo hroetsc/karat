@@ -74,7 +74,7 @@ getSubstrateCounts = function(DB, SRpos, allCombos) {
 # ----- calculate SCS/PSP-P1 -----
 
 getData = function(target, SRpos, col, nm, features_from) {
-  fname = paste0("data/ProteaSMM/",nm,"_",features_from,"feat_",target,"/")
+  fname = paste0("data/ProteaSMM/",nm,"_",features_from,"feat_",target,"_notRem/")
   print(fname)
   suppressWarnings(dir.create(fname))
   
@@ -108,12 +108,12 @@ getData = function(target, SRpos, col, nm, features_from) {
   X = X[,!colnames(X) %in% c("P1;X", "P1_;X")]
   
   # keep only the residues that have peptides detected
-  rem = which(rowSums(t, na.rm = T) == 0)
-  if (length(rem) > 0) {
-    paste0("removing ", length(rem), " empty rows") %>% print()
-    t = t[-rem,]
-    X = X[-rem,]
-  }
+  # rem = which(rowSums(t, na.rm = T) == 0)
+  # if (length(rem) > 0) {
+  #   paste0("removing ", length(rem), " empty rows") %>% print()
+  #   t = t[-rem,]
+  #   X = X[-rem,]
+  # }
   
   pdf(file = paste0(fname, "DATA.pdf"), width = 50, height = 50)
   pheatmap(cbind(X, t/100), cluster_cols = F) %>% print()

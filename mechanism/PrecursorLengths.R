@@ -102,7 +102,7 @@ getPrecursorComparison = function(DB, pepLen, dataset, reactant = "SR1") {
   
   # scale between 1 and 100
   ALLdf = ALL %>%
-    group_by(df) %>%
+    group_by(df, spliceType) %>%
     mutate(normNumPrec = round((100-1)*((numPrec - min(numPrec))/(max(numPrec) - min(numPrec))) + 1))
   
   ALLdf_rep = data.frame(lapply(ALLdf, rep, ALLdf$normNumPrec))
