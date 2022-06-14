@@ -9,70 +9,55 @@ library(RColorBrewer)
 library(grDevices)
 library(dplyr)
 library(stringr)
-library(MASS)
-library(pracma)
 
 # hyperparameters
-
 suppressWarnings(dir.create("results/Bayesian_ProteaSMM/"))
-folderN = "results/Bayesian_ProteaSMM/"
 
 ### INPUT ###
-inpFolder = "data/ProteaSMM/PCP_SR1feat_P1/"
+# ----- SR1
+inpFolder = "data/ProteaSMM/PSP_SR1feat_P1_zscaled/"
 load(paste0(inpFolder,"DATA.RData"))
-X = DATA$X
+X1 = DATA$X
+t1 = DATA$t
+t1 = log(t1/100)
+t1[!is.finite(t1)] = NA
 
-# t = DATA$t
-t = rowMeans(DATA$t, na.rm = T) %>% as.matrix()
-t = log(t/100)
+# ----- SR1
+inpFolder = "data/ProteaSMM/PSP_SR2feat_P1__zscaled/"
+load(paste0(inpFolder,"DATA.RData"))
+X2 = DATA$X
+t2 = DATA$t
+t2 = log(t2/100)
+t2[!is.finite(t2)] = NA
 
-# only the polypeptides
-k = grep("MM", DATA$substrateIDs)
 
-X = X[k,]
-t = t[k,] %>% as.matrix()
+# concatenate matrices and targets
+X = rbind(X1,X2)
+t = rbind(t1,t2)
 
-folderN = str_replace_all(inpFolder, "data/ProteaSMM/", "results/Bayesian_ProteaSMM/")
-suppressWarnings(dir.create(folderN))
+i1 = c(1:ncol(X1))
+i2 = c((ncol(X1)+1):(ncol(X1)+ncol(X2)))
 
 numRep = ncol(t)
-numParam = ncol(X)+1
+numParam = ncol(X1)+ncol(X2)+1
 
 ### MAIN PART ###
-# ---- generate in silico data set -----
-tsample = X%*%runif(n = ncol(X), min = 0, max = 0.5)
-density(tsample) %>% plot()
-
-ptheor = ginv(X)%*%t
-ptheor = (0.8-0.1)*(ptheor - min(ptheor)) / (max(ptheor) - min(ptheor)) + 0.1
-ttheor = X%*%log(ptheor)
-density(ttheor) %>% plot()
-density(t) %>% lines()
-
-simulated = list(X = X,
-                 scores = ptheor,
-                 t = ttheor)
-save(simulated, file = "results/Bayesian_ProteaSMM/PCP_SR1feat_P1_proofRealDistr/logP_simulatedData.RData")
-
-scores = ptheor
-t = ttheor
-
 # ---- settings -----
-Niter = 2*10**5
+Niter = 4*10**5
 
 # change prior according to models
 # set prior: initial conditions followed by parameters
 mini = rep(0,numParam)  # 1 parameter more than required by model --> sigma
-maxi = rep(1,numParam)
+maxi = rep(2,numParam)
 mini[length(mini)] = 0
-maxi[length(maxi)] = 5 # initial sigma
+maxi[length(maxi)] = 10 # initial sigma
 
 # ----- plotting analytics -----
 
 plotChain <- function(chain){
   
   # define parameters
-  paramNames <- c(colnames(X),"sigma")
+  paramNames <- c(colnames(X1),colnames(X2),"sigma")
   
   N = dim(chain)[1]
   burnIn = round(0.9*N)
@@ -90,7 +75,6 @@ plotChain <- function(chain){
     axis(2)
   }
   
-  
   dev.off()
   
   
@@ -106,41 +90,50 @@ plotChain <- function(chain){
   p = param[,-dim(param)[2]]
   
   # compute likelihood
-  tsim = matrix(NA,dim(param)[1],nrow(t))
+  tsim1 = matrix(NA,dim(param)[1],nrow(X1))
+  tsim2 = matrix(NA,dim(param)[1],nrow(X2))
   for(i in 1:dim(param)[1]){
-    tsim[i,] = X%*%log(p[i,])
-    # tsim[i,which(tsim[i,]<0)] = 0
-    # tsim[i,which(tsim[i,]>1)] = 1
+    tsim1[i,] = X1%*%log(p[i,i1])
+    tsim2[i,] = X2%*%log(p[i,i2])
   }
-  
-  
   
   pdf(paste(folderN,"/residuals_",N,".pdf",sep=""), width=25, height=10)
   
-  maxi = max(c(as.vector(t),as.vector(tsim)), na.rm = T)
-  mini = min(c(as.vector(t),as.vector(tsim)), na.rm = T)
-  boxplot(tsim,outline=FALSE,ylim=c(mini,maxi),
-          lty = "blank", whisklty="blank", medlty = "solid")
+  maxi = max(c(as.vector(t),as.vector(tsim1),as.vector(tsim2)), na.rm = T)
+  mini = min(c(as.vector(t),as.vector(tsim1),as.vector(tsim2)), na.rm = T)
   
+  boxplot(tsim1,outline=FALSE,ylim=c(mini,maxi),
+          lty = "blank", whisklty="blank", medlty = "solid")
   sapply(c(1:numRep), function(r){
-    points(c(1:nrow(t)),t[,r],col="red", cex = .4)
+    points(c(1:nrow(t1)),t1[,r],col="red", cex = .4)
+  })
+  
+  boxplot(tsim2,outline=FALSE,ylim=c(mini,maxi),
+          lty = "blank", whisklty="blank", medlty = "solid")
+  sapply(c(1:numRep), function(r){
+    points(c(1:nrow(t2)),t2[,r],col="red", cex = .4)
   })
   
   PP = chain[-(1:burnIn),]
   colnames(PP) = paramNames
   boxplot(PP)
-  # sapply(c(1:numRep), function(r){
-  #   points(c(1:nrow(scores)),scores[,r],col="red", cex = .4)
-  # })
   
   par(mfrow = c(1,numRep))
   sapply(c(1:numRep), function(r){
-    plot(t[,r],apply(tsim,2,mean),pch = 16,
+    rr1 = which(!is.na(t1[,r]))
+    pcc1 = cor(x = t1[rr1,r], y = apply(tsim1,2,mean,na.rm = T)[rr1], method = "pearson")
+    
+    rr2 = which(!is.na(t2[,r]))
+    pcc2 = cor(x = t2[rr2,r], y = apply(tsim2,2,mean,na.rm = T)[rr2], method = "pearson")
+    
+    plot(t1[,r],apply(tsim1,2,mean),pch = 16,
          xlab="cleavage/splicing strength",ylab="simulation",
-         main = paste0("bio rep: ", r),
+         main = paste0("bio rep: ", r, " - PCC = ", round(pcc1,4), ", ", round(pcc2,4)),
          ylim = c(mini,maxi),
          xlim = c(mini,maxi),
+         col = "gray",
          axes=FALSE)
+    points(t2[,r],apply(tsim2,2,mean),pch = 16,col = "lightblue")
     axis(1)
     axis(2,las=2)
     abline(a=0,b=1)
@@ -158,47 +151,49 @@ likelihoodFun <- function(param){
   sigma = param[length(param)]  # sd of prior
   p = param[-length(param)]  # parameters to infer
   
-  tsim = X%*%log(p)
-  # tsim[which(tsim<0)] = 0
-  # tsim[tsim>1] = 1
+  tsim1 = X1%*%log(p[i1])
+  tsim2 = X2%*%log(p[i2])
   
-  
+  # compute likelihood
   SD = sigma
-  likelihood = sum(dnorm(x=tsim,mean=t,sd=SD,log=TRUE))
-
+  likelihood = sapply(1:numRep, function(r){
+    rr1 = which(!is.na(t1[,r]))
+    l1 = sum(dnorm(x=tsim1[rr1,],mean=t1[rr1,r],sd=SD,log=TRUE))
+    
+    rr2 = which(!is.na(t2[,r]))
+    l2 = sum(dnorm(x=tsim2[rr2,],mean=t2[rr2,r],sd=SD,log=TRUE))
+    return(l1+l2)
+  }) %>%
+    sum(na.rm = T)
+  
   if(is.na(likelihood) | !is.finite(likelihood)){
     likelihood = -10**11
   }
-
-
-  # k = which(tsim<0 | tsim>1)
-  # if(length(k)>0){
-  #   likelihood = likelihood-length(k)*10000
-  # }
-
+  
   return(likelihood)
 }
 
 # ----- initiate MCMC -----
-
 # define prior and likelihood
 prior <- createUniformPrior(mini, maxi)
 bayesianSetup <- createBayesianSetup(likelihood = likelihoodFun, prior = prior)
+
+folderN = "results/Bayesian_ProteaSMM/PSPpoly_0614/"
+suppressWarnings(dir.create(folderN))
 
 # initialize and run sampler
 settings <- list(iterations = Niter,
                  consoleUpdates = 5000,
                  nrChains = 1,
                  Z = NULL,  # starting population
-                 startValue=3,  # number of chains
-                 pSnooker = 0.01,  # probability of Snooker update
+                 startValue=5,  # number of chains
+                 pSnooker = 1e-06,  # probability of Snooker update
                  burnin = 0,  # number of iterations as burn in (not recorded)
-                 thin = 10,  # thinning parameter
+                 thin = 5,  # thinning parameter
                  f = 2.38,  # scaling factor gamma
-                 eps = 0.01,  # small number to avoid singularity
-                 parallel = NULL,
+                 eps = 1e-06,  # small number to avoid singularity
                  pGamma1 = 0.1,  # probability determining the frequency with which the scaling is set to 1 
-                 eps.mult = 0.3,  # random term (multiplicative error)
+                 eps.mult = 2,  # random term (multiplicative error)
                  eps.add = 0.0,  # random term
                  zUpdateFrequency = 1,
                  currentChain = 1,

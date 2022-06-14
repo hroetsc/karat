@@ -13,7 +13,7 @@ source("src/SCS+PSP-P1.R")
 
 suppressWarnings(dir.create("data/ProteaSMM/"))
 
-AAchar_here = c("P","G","C","M","A","V","L","F","Y","W","H","R","K","D","E","N","Q","S","T","X")
+AAchar_here = c("P","G","C","M","A","V","I","L","F","Y","W","H","R","K","D","E","N","Q","S","T","X")
 AAchar_here_sorted = sort(AAchar_here)
 
 ### INPUT ###
@@ -25,9 +25,10 @@ proteins = Kinetics
 ### MAIN PART ###
 # ----- preprocessing -----
 nm = intersect(names(polypeps), names(proteins))
-Quant = rbind(polypeps[,nm] %>% mutate(dataset = "polypeps"),
-              proteins[,nm] %>% mutate(dataset = "proteins")) %>%
-  ILredundancy() %>%
+# rbind(polypeps[,nm] %>% mutate(dataset = "polypeps"),
+#       proteins[,nm] %>% mutate(dataset = "proteins"))
+Quant = polypeps %>% mutate(dataset = "polypeps") %>%
+  # ILredundancy() %>%
   disentangleMultimappers.Type() %>%
   tidyr::separate_rows(digestTimes, intensities, sep=";") %>%
   rename(digestTime = digestTimes,
@@ -73,8 +74,8 @@ getSubstrateCounts = function(DB, SRpos, allCombos) {
 
 # ----- calculate SCS/PSP-P1 -----
 
-getData = function(target, SRpos, col, nm, features_from) {
-  fname = paste0("data/ProteaSMM/",nm,"_",features_from,"feat_",target,"_notRem/")
+getData = function(target, SRpos, col, nCol, nm, features_from) {
+  fname = paste0("data/ProteaSMM/",nm,"_",features_from,"feat_",target,"/")
   print(fname)
   suppressWarnings(dir.create(fname))
   
@@ -90,6 +91,16 @@ getData = function(target, SRpos, col, nm, features_from) {
   yPredDF$target = target
   names(yPredDF)[1] = "substrateID"
   
+  # keep only residues with sufficient number of peptides detected
+  # yPredDF_filter = yPredDF %>%
+  #   rename(nnum = nCol) %>%
+  #   filter(nnum > 0) %>%
+  #   group_by(substrateID) %>%
+  #   filter(nnum > quantile(nnum, .05)) %>% ungroup()
+  yPredDF_filter = yPredDF
+  
+  paste0(nrow(yPredDF_filter), " residues passed filtering") %>% print()
+  
   # get binary substrate counts
   substrateMatrix = getSubstrateCounts(Quant, SRpos, allCombos)
   substrateCounts = plyr::ldply(substrateMatrix)
@@ -97,8 +108,9 @@ getData = function(target, SRpos, col, nm, features_from) {
   
   # merge with SCS and PSP-P1
   # add prediction target
-  ALL = left_join(substrateCounts, yPredDF %>% dplyr::select(substrateID, residue, col)) %>%
-    rename(y = col)
+  ALL = left_join(substrateCounts, yPredDF_filter %>% dplyr::select(substrateID, residue, col)) %>%
+    rename(y = col) %>%
+    na.omit()
   
   # separate by bio reps
   t = str_split_fixed(ALL$y, ";", Inf) %>% as.matrix()
@@ -106,14 +118,6 @@ getData = function(target, SRpos, col, nm, features_from) {
   
   X = ALL[,allCombos] %>% as.matrix()
   X = X[,!colnames(X) %in% c("P1;X", "P1_;X")]
-  
-  # keep only the residues that have peptides detected
-  # rem = which(rowSums(t, na.rm = T) == 0)
-  # if (length(rem) > 0) {
-  #   paste0("removing ", length(rem), " empty rows") %>% print()
-  #   t = t[-rem,]
-  #   X = X[-rem,]
-  # }
   
   pdf(file = paste0(fname, "DATA.pdf"), width = 50, height = 50)
   pheatmap(cbind(X, t/100), cluster_cols = F) %>% print()
@@ -135,7 +139,7 @@ getData(target = "P1",
         features_from = "SR1",
         SRpos = c("P4"=-3, "P3"=-2, "P2"=-1, "P1"=0,
                   "P-1"=1, "P-2"=2, "P-3"=3, "P-4"=4),
-        col = "psp_mean",
+        col = "psp_mean", nCol = "psp_n",
         nm = "PSP")
 
 # PSP: SR2
@@ -143,7 +147,7 @@ getData(target = "P1_",
         features_from = "SR2",
         SRpos = c("P-4_"=-4, "P-3_"=-3, "P-2_"=-2, "P-1_"=-1,
                   "P1_"=0, "P2_"=1, "P3_"=2, "P4_"=3),
-        col = "psp_mean",
+        col = "psp_mean", nCol = "psp_n",
         nm = "PSP")
 
 # PCP: precursor
@@ -151,5 +155,5 @@ getData(target = "P1",
         features_from = "SR1",
         SRpos = c("P4"=-3, "P3"=-2, "P2"=-1, "P1"=0,
                   "P-1"=1, "P-2"=2, "P-3"=3, "P-4"=4),
-        col = "scs_mean",
+        col = "scs_mean", nCol = "scs_n",
         nm = "PCP")

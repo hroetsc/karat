@@ -22,19 +22,12 @@ inpFolder = "data/ProteaSMM/PCP_SR1feat_P1/"
 load(paste0(inpFolder,"DATA.RData"))
 X = DATA$X
 
-# t = DATA$t
-t = rowMeans(DATA$t, na.rm = T) %>% as.matrix()
+t = DATA$t
 t = log(t/100)
+t[!is.finite(t)] = NA
 
-# only the polypeptides
-k = grep("MM", DATA$substrateIDs)
-# k = sample(grep("MM", DATA$substrateIDs), 50)
-
-X = X[k,]
-t = t[k,] %>% as.matrix()
 
 folderN = str_replace_all(inpFolder, "data/ProteaSMM/", "results/Bayesian_ProteaSMM/")
-folderN = "results/Bayesian_ProteaSMM/PCP_SR1feat_P1_logModel_Gamma05_epsMult001_v2/"
 suppressWarnings(dir.create(folderN))
 
 numRep = ncol(t)
@@ -60,11 +53,11 @@ numParam = ncol(X)+1
 # t = ttheor
 
 # ---- settings -----
-Niter = 2*10**5
+Niter = 4*10**5
 
 # change prior according to models
 # set prior: initial conditions followed by parameters
-mini = rep(-.2,numParam)  # 1 parameter more than required by model --> sigma
+mini = rep(0,numParam)  # 1 parameter more than required by model --> sigma
 maxi = rep(2,numParam)
 mini[length(mini)] = 0
 maxi[length(maxi)] = 10 # initial sigma
@@ -137,9 +130,11 @@ plotChain <- function(chain){
   
   par(mfrow = c(1,numRep))
   sapply(c(1:numRep), function(r){
+    rr = which(!is.na(t[,r]))
+    pcc = cor(x = t[rr,r], y = apply(tsim,2,mean,na.rm = T)[rr], method = "pearson")
     plot(t[,r],apply(tsim,2,mean),pch = 16,
          xlab="cleavage/splicing strength",ylab="simulation",
-         main = paste0("bio rep: ", r),
+         main = paste0("bio rep: ", r, " - PCC = ", round(pcc,4)),
          ylim = c(mini,maxi),
          xlim = c(mini,maxi),
          axes=FALSE)
@@ -161,12 +156,14 @@ likelihoodFun <- function(param){
   p = param[-length(param)]  # parameters to infer
   
   tsim = X%*%log(p)
-  # tsim[which(tsim<0)] = 0
-  # tsim[tsim>1] = 1
   
   
   SD = sigma
-  likelihood = sum(dnorm(x=tsim,mean=t,sd=SD,log=TRUE))
+  likelihood = sapply(1:numRep, function(r){
+    rr = which(!is.na(t[,r]))
+    return(sum(dnorm(x=tsim[rr,],mean=t[rr,r],sd=SD,log=TRUE)))
+  }) %>%
+    sum(na.rm = T)
   
   if(is.na(likelihood) | !is.finite(likelihood)){
     likelihood = -10**11
@@ -187,7 +184,7 @@ likelihoodFun <- function(param){
 prior <- createUniformPrior(mini, maxi)
 bayesianSetup <- createBayesianSetup(likelihood = likelihoodFun, prior = prior)
 
-folderN = "results/Bayesian_ProteaSMM/PCP_SR1feat_P1_logModel_server6/"
+folderN = "results/Bayesian_ProteaSMM/PCPpoly_0614/"
 suppressWarnings(dir.create(folderN))
 
 # initialize and run sampler
@@ -195,14 +192,14 @@ settings <- list(iterations = Niter,
                  consoleUpdates = 5000,
                  nrChains = 1,
                  Z = NULL,  # starting population
-                 startValue=3,  # number of chains
+                 startValue=5,  # number of chains
                  pSnooker = 1e-06,  # probability of Snooker update
                  burnin = 0,  # number of iterations as burn in (not recorded)
-                 thin = 10,  # thinning parameter
+                 thin = 5,  # thinning parameter
                  f = 2.38,  # scaling factor gamma
                  eps = 1e-06,  # small number to avoid singularity
                  pGamma1 = 0.1,  # probability determining the frequency with which the scaling is set to 1 
-                 eps.mult = 0.1,  # random term (multiplicative error)
+                 eps.mult = 2,  # random term (multiplicative error)
                  eps.add = 0.0,  # random term
                  zUpdateFrequency = 1,
                  currentChain = 1,
@@ -231,3 +228,4 @@ for(ii in 1:100){
 }
 
 save(out, file=paste(folderN,"/out.RData",sep=""))
+

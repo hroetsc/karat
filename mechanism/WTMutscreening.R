@@ -13,8 +13,8 @@ source("src/invitroSPI_utils.R")
 ### INPUT ###
 WTMut = read.csv("../DATA/WT-Mut/invitroSPI/OUTPUT/WT_Mut_0_4/ProteasomeDB.csv",
                  stringsAsFactors = F)
-WTMut_late = read.csv("../DATA/WT-Mut/invitroSPI/OUTPUT/WT_Mut_0_20/ProteasomeDB.csv",
-                      stringsAsFactors = F)
+# WTMut_late = read.csv("../DATA/WT-Mut/invitroSPI/OUTPUT/WT_Mut_0_20/ProteasomeDB.csv",
+#                       stringsAsFactors = F)
 
 WTMutsubNames = read.csv("../DATA/WT-Mut/qiSPI/INPUT/sample_list.csv", stringsAsFactors = F) %>%
   select(protein_name, substrateID) %>%
@@ -25,8 +25,8 @@ WTMutsubNames = read.csv("../DATA/WT-Mut/qiSPI/INPUT/sample_list.csv", stringsAs
 suppressWarnings(dir.create("results/WTMut/"))
 
 # ----- preprocessing -----
-WTMut = rbind(WTMut, WTMut_late)
-WTMut = left_join(rbind(WTMut,WTMut_late), WTMutsubNames)
+# WTMut = left_join(rbind(WTMut,WTMut_late), WTMutsubNames)
+WTMut = left_join(WTMut, WTMutsubNames)
 
 Qual = WTMut %>%
   ILredundancy() %>%
@@ -107,4 +107,4 @@ table(X$identical)
 table(X$spliceType) /2
 
 ### OUTPUT ###
-write.csv(X, "results/WTMut/WT-Mut-paris.csv", row.names = F)
+write.csv(as.data.frame(X), "results/WTMut/WT-Mut-pairs.csv", row.names = F)
