@@ -119,6 +119,14 @@ getData = function(target, SRpos, col, nCol, nm, features_from) {
   X = ALL[,allCombos] %>% as.matrix()
   X = X[,!colnames(X) %in% c("P1;X", "P1_;X")]
   
+  # keep only the residues that have peptides detected
+  rem = which(rowSums(t, na.rm = T) == 0)
+  if (length(rem) > 0) {
+    paste0("removing ", length(rem), " empty rows") %>% print()
+    t = t[-rem,]
+    X = X[-rem,]
+  }
+  
   pdf(file = paste0(fname, "DATA.pdf"), width = 50, height = 50)
   pheatmap(cbind(X, t/100), cluster_cols = F) %>% print()
   dev.off()
@@ -129,11 +137,12 @@ getData = function(target, SRpos, col, nCol, nm, features_from) {
   # merge and return
   DATA = list(X = X,
               t = t,
-              substrateIDs = ALL$substrateID)
+              substrateIDs = ALL$substrateID[-rem])
   
   save(DATA, file = paste0(fname, "DATA.RData"))
 }
 
+# ----- just 4 positions -----
 # PSP: SR1
 getData(target = "P1",
         features_from = "SR1",
@@ -157,3 +166,41 @@ getData(target = "P1",
                   "P-1"=1, "P-2"=2, "P-3"=3, "P-4"=4),
         col = "scs_mean", nCol = "scs_n",
         nm = "PCP")
+
+
+# PSP-P1: SR1 + SR2
+getData(target = "P1",
+        features_from = "SR1+2",
+        SRpos = c("P4"=-3, "P3"=-2, "P2"=-1, "P1"=0,
+                  "P-1"=1, "P-2"=2, "P-3"=3, "P-4"=4,
+                  "P-4_"=-4, "P-3_"=-3, "P-2_"=-2, "P-1_"=-1,
+                  "P1_"=0, "P2_"=1, "P3_"=2, "P4_"=3),
+        col = "psp_mean", nCol = "psp_n",
+        nm = "PSP")
+
+# ----- extended positions -----
+getData(target = "P1",
+        features_from = "SR1ext",
+        SRpos = c("P6"=-5,"P5"=-4,"P4"=-3, "P3"=-2, "P2"=-1, "P1"=0,
+                  "P-1"=1, "P-2"=2, "P-3"=3, "P-4"=4, "P-5"=5, "P-6"=6),
+        col = "psp_mean", nCol = "psp_n",
+        nm = "PSP")
+
+# PSP: SR2
+getData(target = "P1_",
+        features_from = "SR2ext",
+        SRpos = c("P-6_"=-6,"P-5_"=-5,"P-4_"=-4, "P-3_"=-3, "P-2_"=-2, "P-1_"=-1,
+                  "P1_"=0, "P2_"=1, "P3_"=2, "P4_"=3, "P5_"=4, "P6_"=5),
+        col = "psp_mean", nCol = "psp_n",
+        nm = "PSP")
+
+# PCP: precursor
+getData(target = "P1",
+        features_from = "SR1ext",
+        SRpos = c("P6"=-5,"P5"=-4,"P4"=-3, "P3"=-2, "P2"=-1, "P1"=0,
+                  "P-1"=1, "P-2"=2, "P-3"=3, "P-4"=4, "P-5"=5, "P-6"=6),
+        col = "scs_mean", nCol = "scs_n",
+        nm = "PCP")
+
+
+

@@ -15,26 +15,34 @@ source("src/invitroSPI_utils.R")
 source("src/plotting_utils.R")
 
 theme_set(theme_classic())
-AAchar_here = c("P","G","C","M","A","V","L","F","Y","W","H","R","K","D","E","N","Q","S","T","X")
+AAchar_here = c("P","G","C","M","A","V","I","L","F","Y","W","H","R","K","D","E","N","Q","S","T","X")
+AAchar_here_sorted = sort(AAchar_here)
 
 ### INPUT ###
-load("Bayesian_ProteaSMM/server/PCP_SR1feat_P1_logModel_server6_polyRepshighNoise/posterior.RData")
+load("Bayesian_ProteaSMM/server/PCPpoly_0615_extendedPos/posterior.RData")
 pcp_post = posterior
-load("Bayesian_ProteaSMM/server/PSP_SR1feat_P1_logModel_server6_polyRepshighNoise/posterior.RData")
+load("Bayesian_ProteaSMM/server/SR1poly_0615_extendedPos/posterior.RData")
 sr1_post = posterior
-load("Bayesian_ProteaSMM/server/PSP_SR2feat_P1__logModel_server6_polyRepshighNoise/posterior.RData")
+load("Bayesian_ProteaSMM/server/SR2poly_0615_extendedPos/posterior.RData")
 sr2_post = posterior
-load("Bayesian_ProteaSMM/server/PSP_SR1+1feat_logModel_server6_polyRepshighNoise/posterior.RData")
-sr_post = posterior
+
+# leave one out
+load("Bayesian_ProteaSMM/server/PCPpoly_0616_extendedPosLOV/posterior.RData")
+pcp_post = posterior
+load("Bayesian_ProteaSMM/server/SR1poly_0616_extendedPosLOV/posterior.RData")
+sr1_post = posterior
+load("Bayesian_ProteaSMM/server/SR2poly_0616_extendedPosLOV/posterior.RData")
+sr2_post = posterior
+
 
 ### MAIN PART ###
 suppressWarnings(dir.create("results/Bayesian_ProteaSMM/PLOTS/"))
 suppressWarnings(dir.create("results/Bayesian_ProteaSMM/PLOTS/PCP/"))
-suppressWarnings(dir.create("results/Bayesian_ProteaSMM/PLOTS/ALL/"))
+suppressWarnings(dir.create("results/Bayesian_ProteaSMM/PLOTS/ALL_0616/"))
 
 
 # ----- correlation between true and predicted -----
-plotCorrelation = function(inpFolder, posterior) {
+plotCorrelation = function(inpFolder, posterior, burnin = 0.5) {
   
   # ---- load data
   if(length(inpFolder) == 1) {
@@ -47,9 +55,9 @@ plotCorrelation = function(inpFolder, posterior) {
     t = log(t/100)
     t[!is.finite(t)] = NA
     
-    k = grep("MM", DATA$substrateIDs)
+    k = which(DATA$substrateIDs != "TSN5")
     X = X[k,]
-    t = t[k,] %>% as.matrix()
+    t = t[k,]
     
   } else {
     
@@ -60,11 +68,6 @@ plotCorrelation = function(inpFolder, posterior) {
     # t1 = log(t1/100)
     t1 = log(t1)
     t1[!is.finite(t1)] = NA
-    # only polypeptides
-    k = grep("MM", DATA$substrateIDs)
-    X1 = X1[k,]
-    t1 = t1[k,] %>% as.matrix()
-    
     
     
     load(paste0(inpFolder[2],"DATA.RData"))
@@ -74,10 +77,6 @@ plotCorrelation = function(inpFolder, posterior) {
     # t2 = log(t2/100)
     t2 = log(t2)
     t2[!is.finite(t2)] = NA
-    # only polypeptides
-    k = grep("MM", DATA$substrateIDs)
-    X2 = X2[k,]
-    t2 = t2[k,] %>% as.matrix()
     
     
     # concatenate matrices and targets
@@ -90,7 +89,7 @@ plotCorrelation = function(inpFolder, posterior) {
   }
   
   N = dim(posterior)[1]
-  burnIn = round(0.9*N)
+  burnIn = round(burnin*N)
   chain = posterior[-(1:burnIn),]
   if(length(inpFolder) == 1) {
     colnames(chain) = c(colnames(X),"sigma")
@@ -134,6 +133,7 @@ plotCorrelation = function(inpFolder, posterior) {
     pcc = cor(x = t[rr,r], y = tsim_mean[rr], method = "pearson")
     
     plot(x=t[rr,r], y=tsim_mean[rr], pch = 16,
+         col = if(length(inpFolder) == 2) c(rep(add.alpha("gray",.7),nrow(t1)), rep(add.alpha("lightblue",.7),nrow(t2))) else "black",
          # xlim = c(-13,0), ylim = c(-13,0),
          xlab = "log SCS-P1", ylab = "simulated log SCS-P1",
          main = paste0("PCC = ", round(pcc,4)), sub = inpFolder[1])
@@ -144,30 +144,38 @@ plotCorrelation = function(inpFolder, posterior) {
   return(chain)
 }
 
-pdf("results/Bayesian_ProteaSMM/PLOTS/ALL/_SR1+2tog_CORRELATION.pdf",width = 10, height = 10)
-par(mfrow = c(2,3))
-pcp_chain = plotCorrelation(inpFolder = "Bayesian_ProteaSMM/ProteaSMM/PCP_SR1feat_P1/", posterior = pcp_post)
-sr_chain = plotCorrelation(inpFolder = c("Bayesian_ProteaSMM/ProteaSMM/PSP_SR1feat_P1/", "Bayesian_ProteaSMM/ProteaSMM/PSP_SR2feat_P1_/"), posterior = sr_post)
-# sr1_chain = plotCorrelation(inpFolder = "data/ProteaSMM/PSP_SR1feat_P1/", posterior = sr1_post)
-# sr2_chain = plotCorrelation(inpFolder = "data/ProteaSMM/PSP_SR2feat_P1_/", posterior = sr2_post)
+pdf("results/Bayesian_ProteaSMM/PLOTS/ALL_0616/_LOV_CORRELATION.pdf",width = 10, height = 10)
+par(mfrow = c(3,3))
+pcp_chain = plotCorrelation(inpFolder = "data/ProteaSMM/PCP_SR1extfeat_P1/", posterior = pcp_post, burnin = 0.1)
+sr1_chain = plotCorrelation(inpFolder = "data/ProteaSMM/PSP_SR1extfeat_P1/", posterior = sr1_post, burnin = 0.1)
+sr2_chain = plotCorrelation(inpFolder = "data/ProteaSMM/PSP_SR2extfeat_P1_/", posterior = sr2_post, burnin = 0.1)
 dev.off()
+
+save(pcp_chain, file = "results/Bayesian_ProteaSMM/CHAINS/LOVpcp_chain.RData")
+save(sr1_chain, file = "results/Bayesian_ProteaSMM/CHAINS/LOVsr1_chain.RData")
+save(sr2_chain, file = "results/Bayesian_ProteaSMM/CHAINS/LOVsr2_chain.RData")
+
+save(pcp_chain, file = "results/Bayesian_ProteaSMM/CHAINS/pcp_chain.RData")
+save(sr1_chain, file = "results/Bayesian_ProteaSMM/CHAINS/sr1_chain.RData")
+save(sr2_chain, file = "results/Bayesian_ProteaSMM/CHAINS/sr2_chain.RData")
+
 
 # ----- boxplots -----
 PCPparam = tidyr::gather(pcp_chain %>% as.data.frame()) %>%
   mutate(reactant = "PCP")
-# SR1param = tidyr::gather(sr1_chain %>% as.data.frame()) %>%
-#   mutate(reactant = "SR1")
-# SR2param = tidyr::gather(sr2_chain %>% as.data.frame()) %>%
-#   mutate(reactant = "SR2")
-SRparam = tidyr::gather(sr_chain %>% as.data.frame()) %>%
-  mutate(reactant = "SR")
+SR1param = tidyr::gather(sr1_chain %>% as.data.frame()) %>%
+  mutate(reactant = "SR1")
+SR2param = tidyr::gather(sr2_chain %>% as.data.frame()) %>%
+  mutate(reactant = "SR2")
+# SRparam = tidyr::gather(sr_chain %>% as.data.frame()) %>%
+#   mutate(reactant = "SR")
 
-# bothR = rbind(SR1param,SR2param,PCPparam)
-bothR = rbind(SRparam,PCPparam)
+bothR = rbind(SR1param,SR2param,PCPparam)
+# bothR = rbind(SRparam,PCPparam)
 bothR$position = str_split_fixed(bothR$key,";",Inf)[,1]
 # tmp!
-bothR$reactant[bothR$position %in% c("P4", "P3", "P2", "P1", "P-1", "P-2", "P-3", "P-4") & bothR$reactant != "PCP"] = "SR1"
-bothR$reactant[bothR$position %in% c("P-4_", "P-3_", "P-2_", "P-1_", "P1_", "P2_", "P3_", "P4_")] = "SR2"
+# bothR$reactant[bothR$position %in% c("P4", "P3", "P2", "P1", "P-1", "P-2", "P-3", "P-4") & bothR$reactant != "PCP"] = "SR1"
+# bothR$reactant[bothR$position %in% c("P-4_", "P-3_", "P-2_", "P-1_", "P1_", "P2_", "P3_", "P4_")] = "SR2"
 
 bothR$aa = str_split_fixed(bothR$key,";",Inf)[,2]
 
@@ -176,20 +184,26 @@ bothR = bothR[-which(bothR$position == "sigma"), ]
 bothR$aa = factor(bothR$aa, levels = AAchar_here)
 
 # compare positions
-# bothR$commonPos = NA
-# bothR$commonPos[bothR$position %in% c("P1","P1_")] = "P1/P1_"
-# bothR$commonPos[bothR$position %in% c("P2","P2_")] = "P2/P2_"
-# bothR$commonPos[bothR$position %in% c("P3","P3_")] = "P3/P3_"
-# bothR$commonPos[bothR$position %in% c("P4","P4_")] = "P4/P4_"
-# bothR$commonPos[bothR$position %in% c("P-1","P-1_")] = "P-1/P-1_"
-# bothR$commonPos[bothR$position %in% c("P-2","P-2_")] = "P-2/P-2_"
-# bothR$commonPos[bothR$position %in% c("P-3","P-3_")] = "P-3/P-3_"
-# bothR$commonPos[bothR$position %in% c("P-4","P-4_")] = "P-4/P-4_"
+{
+bothR$commonPos = NA
+bothR$commonPos[bothR$position %in% c("P1","P1_")] = "P1/P1_"
+bothR$commonPos[bothR$position %in% c("P2","P2_")] = "P2/P2_"
+bothR$commonPos[bothR$position %in% c("P3","P3_")] = "P3/P3_"
+bothR$commonPos[bothR$position %in% c("P4","P4_")] = "P4/P4_"
+bothR$commonPos[bothR$position %in% c("P5","P5_")] = "P5/P5_"
+bothR$commonPos[bothR$position %in% c("P6","P6_")] = "P6/P6_"
+bothR$commonPos[bothR$position %in% c("P-1","P-1_")] = "P-1/P-1_"
+bothR$commonPos[bothR$position %in% c("P-2","P-2_")] = "P-2/P-2_"
+bothR$commonPos[bothR$position %in% c("P-3","P-3_")] = "P-3/P-3_"
+bothR$commonPos[bothR$position %in% c("P-4","P-4_")] = "P-4/P-4_"
+bothR$commonPos[bothR$position %in% c("P-5","P-5_")] = "P-5/P-5_"
+bothR$commonPos[bothR$position %in% c("P-6","P-6_")] = "P-6/P-6_"
+}
 
 
 # plot per position
-# pos = c("P4", "P3", "P2", "P1","P-4","P-3","P-2","P-1")
-pos = c("P4/P4_","P3/P3_","P2/P2_","P1/P1_","P-4/P-4_","P-3/P-3_","P-2/P-2_","P-1/P-1_")
+pos = c("P6/P6_","P5/P5_","P4/P4_","P3/P3_","P2/P2_","P1/P1_",
+        "P-6/P-6_","P-5/P-5_","P-4/P-4_","P-3/P-3_","P-2/P-2_","P-1/P-1_")
 allP = list()
 
 for (p in 1:length(pos)) {
@@ -211,24 +225,28 @@ for (p in 1:length(pos)) {
   
 }
 
-ggsave(filename = "results/Bayesian_ProteaSMM/PLOTS/ALL/_SR1+2tog_paramDistributions.pdf", 
-       plot = gridExtra::marrangeGrob(allP, nrow=4, ncol=2, byrow = F), 
-       width = 15, height = 18, dpi = "retina")
+ggsave(filename = "results/Bayesian_ProteaSMM/PLOTS/ALL_0615/_paramDistributions.pdf", 
+       plot = gridExtra::marrangeGrob(allP, nrow=6, ncol=2, byrow = F), 
+       width = 15, height = 27, dpi = "retina")
 
 
 
 # plot per amino acid
-bothR$commonPos = factor(bothR$commonPos, levels = c("P4/P4_","P3/P3_","P2/P2_","P1/P1_","P-1/P-1_","P-2/P-2_","P-3/P-3_","P-4/P-4_"))
+bothR$position = factor(bothR$position, levels = c("P6","P5","P4", "P3", "P2", "P1",
+                                                   "P-1","P-2","P-3","P-4","P-5","P-6",
+                                                   "P-6_","P-5_","P-4_", "P-3_", "P-2_", "P-1_",
+                                                   "P1_", "P2_", "P3_", "P4_", "P5_", "P6_"))
 allPaa = list()
 for (a in 1:length(AAchar_here)) {
   
   cntR = bothR[bothR$aa == as.character(AAchar_here[a]), ]
-  cntP = ggplot(cntR, aes(x = commonPos, y = value, fill = reactant)) +
+  cntP = ggplot(cntR, aes(x = position, y = value, fill = reactant)) +
     geom_boxplot(outlier.shape = NA, coef = 0, position = position_dodge(0.5), aes(alpha = .8)) +
     geom_hline(yintercept = c(mean(cntR$value[cntR$reactant == "PCP"]),
                               mean(cntR$value[cntR$reactant == "SR1"]),
                               mean(cntR$value[cntR$reactant == "SR2"])),
                col = c(plottingCols[["PCP"]],"gray","lightblue"), lty = "dashed", lwd = 0.8) +
+    geom_vline(xintercept = c(6.5,12.5,18.5), lty = "dotted") +
     # ylim(c(-6,6)) +
     scale_fill_manual(values = c(plottingCols[["PCP"]],"gray","lightblue")) +
     xlab("position") +
@@ -238,9 +256,42 @@ for (a in 1:length(AAchar_here)) {
   allPaa[[a]] = cntP
 }
 
-ggsave(filename = "results/Bayesian_ProteaSMM/PLOTS/ALL/_SR1+2tog_paramDistributions_aa-wise.pdf", 
+ggsave(filename = "results/Bayesian_ProteaSMM/PLOTS/ALL_0615/_paramDistributions_aa-wise.pdf", 
        plot = gridExtra::marrangeGrob(allPaa, nrow=7, ncol=3, byrow = T), 
-       width = 22, height = 35, dpi = "retina")
+       width = 35, height = 35, dpi = "retina")
+
+# ----- heatmap -----
+rf <- colorRampPalette(rev(brewer.pal(11,'Spectral')))
+rcol <- rf(100)
+
+paramHeatmap = function(chain, residues, nm) {
+  
+  chain = chain[,-which(colnames(chain) == "sigma")]
+  DF = cbind(apply(chain,2,median), str_split_fixed(colnames(chain),";",Inf)) %>%
+    as.data.frame()
+  names(DF) = c("mean_weight","position","aa")
+  DFt = DF %>% tidyr::spread(position,mean_weight)
+ 
+  DFt = as.matrix(DFt[,residues])
+  DFt = apply(DFt,2,as.numeric)
+  rownames(DFt) = AAchar_here_sorted
+  DFt = DFt[AAchar_here, ]
+  
+  
+  image(DFt %>% t(), axes = F, col = rcol,
+        main = nm,
+        sub = "estimated regression parameters\nlow: blue, high: red")
+  axis(2, at = seq(0,1,1/(length(AAchar_here)-1)), labels = AAchar_here)
+  axis(1, at = seq(0,1,1/(length(residues)-1)), labels = residues)
+  
+}
+
+png("results/Bayesian_ProteaSMM/PLOTS/ALL_0615/PARAMETER_heatmap.png", height = 15, width = 40, units = "cm", res = 600)
+par(mfrow = c(1,3))
+paramHeatmap(chain = sr1_chain, residues = c("P6","P5","P4", "P3", "P2", "P1", "P-1", "P-2", "P-3", "P-4","P-5", "P-6"), nm = "SR1")
+paramHeatmap(chain = sr2_chain, residues = c("P-6_","P-5_","P-4_", "P-3_", "P-2_", "P-1_", "P1_", "P2_", "P3_", "P4_", "P5_", "P6_"), nm = "SR2")
+paramHeatmap(chain = pcp_chain, residues = c("P6","P5","P4", "P3", "P2", "P1", "P-1", "P-2", "P-3", "P-4","P-5", "P-6"), nm = "PCP")
+dev.off()
 
 
 # ----- parameter correlation -----
@@ -249,10 +300,11 @@ bothR = bothR %>%
   mutate(col = ifelse(reactant == "SR1", "gray", "lightblue"),
          col = ifelse(reactant == "PCP", plottingCols["PCP"], col))
 
-pdf("results/Bayesian_ProteaSMM/PLOTS/ALL/_SR1+2tog_PARAMETER_CORRELATION.pdf", height = 7, width = 21)
+pdf("results/Bayesian_ProteaSMM/PLOTS/ALL_0615/PARAMETER_CORRELATION_pos-wise.pdf", height = 7, width = 21)
 par(mfrow = c(1,3))
 
-poi = c("P4/P4_","P3/P3_","P2/P2_","P1/P1_","P-1/P-1_","P-2/P-2_","P-3/P-3_","P-4/P-4_")
+poi = c("P6/P6_","P5/P5_","P4/P4_","P3/P3_","P2/P2_","P1/P1_",
+        "P-6/P-6_","P-5/P-5_","P-4/P-4_","P-3/P-3_","P-2/P-2_","P-1/P-1_")
 for (p in 1:length(poi)) {
   print(poi[p])
   cntR = bothR[bothR$commonPos == as.character(poi[p]), ] %>%
@@ -273,7 +325,7 @@ for (p in 1:length(poi)) {
 }
 dev.off()
 
-pdf("results/Bayesian_ProteaSMM/PLOTS/ALL/_SR1+2tog_PARAMETER_CORRELATION_allPos.pdf", height = 25, width = 25)
+pdf("results/Bayesian_ProteaSMM/PLOTS/ALL_0615/PARAMETER_CORRELATION.pdf", height = 25, width = 25)
 sapply(c("SR1","SR2","PCP"), function(t) {
   print(t)
   
@@ -288,6 +340,13 @@ sapply(c("SR1","SR2","PCP"), function(t) {
            diag = T, addCoefasPercent = F, title = paste0("\n",t))
 })
 dev.off()
+
+
+
+
+
+
+
 
 
 # ----- analyse correlation matrix ------

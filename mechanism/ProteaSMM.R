@@ -24,7 +24,7 @@ rf <- colorRampPalette(rev(brewer.pal(11,'Spectral')))
 rcol <- rf(100)
 theme_set(theme_classic())
 
-AAchar_here = c("P","G","C","M","A","V","L","F","Y","W","H","R","K","D","E","N","Q","S","T","X")
+AAchar_here = c("P","G","C","M","A","V","I","L","F","Y","W","H","R","K","D","E","N","Q","S","T","X")
 AAchar_here_sorted = sort(AAchar_here)
 
 # hyperparameters
@@ -34,33 +34,25 @@ suppressWarnings(dir.create("results/Analytical_ProteaSMM/"))
 ### INPUT ###
 nm = "PSP"
 target = "P1"
-interesting_residues = c("P4", "P3", "P2", "P1", "P-1", "P-2", "P-3", "P-4",
-                         "P-4_", "P-3_", "P-2_", "P-1_", "P1_", "P2_", "P3_", "P4_")
-# interesting_residues = c("P4", "P3", "P2", "P1", "P-1", "P-2", "P-3", "P-4")
-# interesting_residues = c("P-4_", "P-3_", "P-2_", "P-1_", "P1_", "P2_", "P3_", "P4_")
+# interesting_residues = c("P4", "P3", "P2", "P1", "P-1", "P-2", "P-3", "P-4",
+#                          "P-4_", "P-3_", "P-2_", "P-1_", "P1_", "P2_", "P3_", "P4_")
+interesting_residues = c("P5","P5","P4", "P3", "P2", "P1", "P-1", "P-2", "P-3", "P-4","P-5","P-6")
+# interesting_residues = c("P-6_","P-5_","P-4_", "P-3_", "P-2_", "P-1_", "P1_", "P2_", "P3_", "P4_", "P5_", "P6_")
 
 
-inpFolder = "data/ProteaSMM/PSP_SR1feat_P1_notRem/"
+inpFolder = "data/ProteaSMM/PSP_SR1extfeat_P1/"
 load(paste0(inpFolder,"DATA.RData"))
-X1 = DATA$X
+X = DATA$X
 
-rem = which(rowSums(DATA$t, na.rm = T) == 0)
 # t = rowMeans(DATA$t, na.rm = T) %>% as.matrix()
 t = log(DATA$t/100)
 t[!is.finite(t)] = NA
 
-inpFolder = "data/ProteaSMM/PSP_SR2feat_P1__notRem/"
-load(paste0(inpFolder,"DATA.RData"))
-X2 = DATA$X
-
-X = cbind(X1,X2)
-
-# remove meaningless rows
-if (length(rem) > 0) {
-  paste0("removing ", length(rem), " empty rows") %>% print()
-  t = t[-rem,]
-  X = X[-rem,]
-}
+# inpFolder = "data/ProteaSMM/PSP_SR2feat_P1_/"
+# load(paste0(inpFolder,"DATA.RData"))
+# X2 = DATA$X
+# 
+# X = cbind(X1,X2)
 
 # load("results/Bayesian_ProteaSMM/PCP_SR1feat_P1_proofRealDistr/logP_simulatedData.RData")
 # t = simulated$t
@@ -69,7 +61,7 @@ if (length(rem) > 0) {
 
 
 folderN = str_replace_all(inpFolder, "data/ProteaSMM/", "results/Analytical_ProteaSMM/")
-folderN = "results/Analytical_ProteaSMM/PSP_SR1+2feat_P1/"
+# folderN = "results/Analytical_ProteaSMM/PSP_SR1+2feat_P1/"
 suppressWarnings(dir.create(folderN))
 
 numRep = ncol(t)
@@ -125,9 +117,9 @@ determineWeights = function(X,t, nm, target, interesting_residues) {
   # ii = c(1:nrow(allParams))
   
   # plot the bags
-  plot(x = c(1:noBags), y = MSEs, type = "l",
+  plot(x = c(1:noBags), y = log(MSEs), type = "l",
        main = "bootstrap aggregation",
-       xlab = "bag", ylab = "MSE")
+       xlab = "bag", ylab = "log MSE")
   abline(h = cutoff, lty = "dashed", col = "red")
   
   
@@ -194,6 +186,15 @@ determineWeights = function(X,t, nm, target, interesting_residues) {
 determineWeights(X, t, nm, target, interesting_residues)
 
 
+
+
+
+
+
+load("results/Analytical_ProteaSMM/PSP_SR1+2feat_P1/SMManalytical_PSP_P1.RData")
+param = out$allParams
+density(exp(param)) %>% plot(xlim = c(0,2))
+BayesianTools::createTruncatedNormalPrior(lower = 0, upper = 2)
 
 # ----- compare P1 and P1' -----
 suppressWarnings(dir.create("results/Analytical_ProteaSMM/SR1vsSR2/"))

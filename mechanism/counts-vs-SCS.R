@@ -11,8 +11,6 @@ source("src/invitroSPI_utils.R")
 source("src/_extract-aa.R")
 source("src/SCS+PSP-P1.R")
 
-suppressWarnings(dir.create("data/ProteaSMM/"))
-
 AAchar_here = c("P","G","C","M","A","V","I","L","F","Y","W","H","R","K","D","E","N","Q","S","T","X")
 AAchar_here_sorted = sort(AAchar_here)
 

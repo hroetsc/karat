@@ -53,7 +53,7 @@ numParam = ncol(X)+1
 # t = ttheor
 
 # ---- settings -----
-Niter = 4*10**5
+Niter = 3*10**5
 
 # change prior according to models
 # set prior: initial conditions followed by parameters
@@ -170,10 +170,10 @@ likelihoodFun <- function(param){
   }
   
   
-  # k = which(tsim<0 | tsim>1)
-  # if(length(k)>0){
-  #   likelihood = likelihood-length(k)*10000
-  # }
+  k = which(tsim>1)
+  if(length(k)>0){
+    likelihood = likelihood-length(k)*10000
+  }
   
   return(likelihood)
 }
@@ -184,7 +184,7 @@ likelihoodFun <- function(param){
 prior <- createUniformPrior(mini, maxi)
 bayesianSetup <- createBayesianSetup(likelihood = likelihoodFun, prior = prior)
 
-folderN = "results/Bayesian_ProteaSMM/PCPpoly_0614/"
+folderN = "results/Bayesian_ProteaSMM/PCPpoly_0615/"
 suppressWarnings(dir.create(folderN))
 
 # initialize and run sampler
@@ -192,7 +192,7 @@ settings <- list(iterations = Niter,
                  consoleUpdates = 5000,
                  nrChains = 1,
                  Z = NULL,  # starting population
-                 startValue=5,  # number of chains
+                 startValue=3,  # number of chains
                  pSnooker = 1e-06,  # probability of Snooker update
                  burnin = 0,  # number of iterations as burn in (not recorded)
                  thin = 5,  # thinning parameter

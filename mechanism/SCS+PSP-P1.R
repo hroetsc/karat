@@ -122,7 +122,7 @@ resolve_multimapper = function(ProteasomeDB) {
 
 # ----- compute SCS-P1 and PSP-P1 -----
 
-SCS_and_PSP = function(DBMaster,target,meanOverBio=T,Zscale=F) {
+SCS_and_PSP = function(DBMaster,target,meanOverBio=T,Zscale=F,rawVals=F) {
   
   pcpidx = which(DBMaster$productType == "PCP")
   pspidx = which(DBMaster$productType == "PSP")
@@ -184,6 +184,11 @@ SCS_and_PSP = function(DBMaster,target,meanOverBio=T,Zscale=F) {
     if (!Zscale) {
       scs = sweep(scs, 2, colSums(scs,na.rm = T), FUN = "/")
       psp = sweep(psp, 2, colSums(psp,na.rm = T), FUN = "/")
+    } else if (rawVals) {
+      
+      scs = scs
+      psp = psp
+      
     } else {
       scs = apply(scs,2,function(x){
         return((x - min(x)) / (max(x)-min(x)))
@@ -203,6 +208,11 @@ SCS_and_PSP = function(DBMaster,target,meanOverBio=T,Zscale=F) {
     if (!Zscale) {
       scs = sweep(scs, 2, colSums(scs,na.rm = T), FUN = "/") * 100
       psp = sweep(psp, 2, colSums(psp,na.rm = T), FUN = "/") * 100
+    } else if (rawVals) {
+      
+      scs = scs
+      psp = psp
+      
     } else {
       scs = apply(scs,2,function(x){
         return(((x - min(x,na.rm = T)) / (max(x,na.rm = T)-min(x,na.rm = T)))*100)
@@ -227,7 +237,7 @@ SCS_and_PSP = function(DBMaster,target,meanOverBio=T,Zscale=F) {
 
 # ----- iterate substrate sequences -----
 
-SCSandPSP_allSubs = function(DB, target,meanOverBio=T,Zscale=F) {
+SCSandPSP_allSubs = function(DB, target,meanOverBio=T,Zscale=F,rawVals=F) {
   
   subs = DB$substrateID %>% unique()
   
@@ -245,7 +255,7 @@ SCSandPSP_allSubs = function(DB, target,meanOverBio=T,Zscale=F) {
   
   print("calculating SCS and PSP-P1")
   out = lapply(subs, function(x){
-    SCS_and_PSP(DBMaster[DBMaster$substrateID == x, ], target,meanOverBio,Zscale)
+    SCS_and_PSP(DBMaster[DBMaster$substrateID == x, ], target,meanOverBio,Zscale,rawVals)
   })
   
   names(out) = subs
