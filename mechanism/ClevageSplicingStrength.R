@@ -12,6 +12,9 @@ library(Peptides)
 library(MASS)
 library(gplots)
 library(RColorBrewer)
+library(ggplot2)
+library(twosamples)
+theme_set(theme_classic())
 
 source("src/invitroSPI_utils.R")
 source("src/SCS+PSP-P1.R")
@@ -64,7 +67,7 @@ getPlots = function(DB, target, suffix, limited = F) {
   
   # ----- retrieve SCS/PSP-P1 ----
   # SCS-and-PSP
-  out = SCSandPSP_allSubs(DB, target)
+  out = SCSandPSP_allSubs(DB = DB, target = target, SR2forSCS = T, meanOverBio = T, Zscale = F, rawVals = F)  # !!!!!
   data = plyr::ldply(out) %>%
     as.data.frame()
   data$target = target
@@ -145,6 +148,39 @@ getPlots = function(DB, target, suffix, limited = F) {
   }
   dev.off()
   
+  # ggplot
+  allP = list()
+  counter = 1
+  for (j in (ncol(data)+1):ncol(dat)) {
+    cnt = dat[dat[,j] == 1, ]
+    
+    if(limited) {
+      lim = max(cnt$scs_mean,cnt$psp_mean)
+    } else {
+      lim = 100
+    }
+    
+    # statistical test
+    set.seed(1234)
+    pval = ad_test(cnt$scs_mean, cnt$psp_mean)[2]
+    
+    p = ggplot(cnt, aes(x = scs_mean, y = psp_mean)) +
+      geom_point() +
+      xlab("cleavage strength (%)") +
+      ylab("splicing strength (%)") +
+      ggtitle(names(dat)[j], subtitle = paste0(paste(cnt$aa %>% unique() %>% sort(), collapse = ", "), " - n=", nrow(cnt), ", p = ", pval)) +
+      xlim(0,lim) + ylim(0,lim)
+    
+    allP[[counter]] = ggExtra::ggMarginal(p, type = "density", size = 8)
+    counter = counter+1
+  }
+  
+  ggsave(filename = paste0("results/SCS+PSP/SCS+PSP_scatterDens_",target,suffix,".pdf"), 
+         plot = gridExtra::marrangeGrob(allP, nrow=6, ncol=5, byrow = T), 
+         width = 20, height = 24, dpi = "retina")
+  
+  
+  
 }
 
 
@@ -160,11 +196,11 @@ randomQuant_down = randomQuant[sample(seq(1,nrow(randomQuant)), x), ] %>%
 
 ### OUTPUT ###
 # targets = c("P4", "P3", "P2", "P1", "P1_", "P2_", "P3_", "P4_")
-targets = c("P1", "P1_")
+targets = c("P1","P-1","P1_")
 sapply(targets, function(t){
   getPlots(DB = polypeps, target = t, suffix = "_PolypepTrueLim", limited = T)
   getPlots(DB = ALL, target = t, suffix = "_trueLim", limited = T)
-  getPlots(DB = randomQuant_down, target = t, suffix = "_random")
+  # getPlots(DB = randomQuant_down, target = t, suffix = "_random")
 })
 
 

@@ -60,7 +60,7 @@ table(randomDB$spliceType)
 # get normalised tables
 # all tables should contain the same amino acids
 AA = c("A","D","E","F","G","H","K","L","N","P","Q","R","S","T","V","W","Y", "M", "C")
-AAchar = c("P","G","C","A","V","L","M","F","Y","W","H","R","K","D","E","N","Q","S","T")
+AAchar = c("P","G","C","M","A","V","L","F","Y","W","H","R","K","D","E","N","Q","S","T")
 # AA = AA[order(AA)]
 
 # positions
@@ -74,7 +74,7 @@ PCPpos = c("P4"=-3, "P3"=-2, "P2"=-1, "P1"=0,
            "P1_"=1, "P2_"=2, "P3_"=3, "P4_"=4)
 
 SRnames = c(names(SR1pos), names(SR2pos))
-types = c("cis", "revCis", "trans", "PCP")
+types = c("cis", "revCis", "trans", "PCP", "PSP")
 
 # ----- extract aas and normalise aa frequencies -----
 # extract amino acids at different positions
@@ -158,7 +158,7 @@ same_pos = function(tbl) {
 # normalised counts
 table_aa = function(type, truePos, random) {
   
-  if (type %in% truePos$spliceType) {
+  if (type %in% c(truePos$spliceType, "PSP")) {
     
     out = lapply(SRnames, function(x) {
       
@@ -205,13 +205,14 @@ bootstrapping = function(DB, randomDB) {
   ridx = which(randomDB$spliceType == "revCis")
   tidx = which(randomDB$spliceType == "trans")
   pidx = which(randomDB$spliceType %in% c("PCP", NA))
+  psidx = which(randomDB$productType == "PSP")
   
   # store bootstrap results
   # list of arrays: every list entry corresponds to one position
   # dim1: product/splice type, dim2: AAs, dim3: bootstraps
   MASTER = lapply(SRnames, function(x){
-    lst = array(dim = c(4, length(AA), no_bootstraps),
-                dimnames = list(c("cis", "revCis", "trans", "PCP"),
+    lst = array(dim = c(5, length(AA), no_bootstraps),
+                dimnames = list(c("cis", "revCis", "trans", "PCP", "PSP"),
                                 AA,
                                 c(1:no_bootstraps)))
   })
@@ -231,13 +232,15 @@ bootstrapping = function(DB, randomDB) {
     revCis = table_aa(type = "revCis", cntTruePos[cntTruePos$spliceType=="revCis",], randomPos[ridx,])
     trans = table_aa(type = "trans", cntTruePos[cntTruePos$spliceType=="trans",], randomPos[tidx,])
     pcp = table_aa(type = "PCP", cntTruePos[cntTruePos$spliceType=="PCP",], randomPos[pidx,])
+    psp = table_aa(type = "PSP", cntTruePos[cntTruePos$spliceType %in% c("cis","revCis","trans"),], randomPos[psidx,])
     
     # iterate positions
     for (j in SRnames) {
       MASTER[[j]][1:dim(MASTER[[1]])[1],1:dim(MASTER[[1]])[2],i] = rbind(cis[[j]],
                                                                          revCis[[j]],
                                                                          trans[[j]],
-                                                                         pcp[[j]])
+                                                                         pcp[[j]],
+                                                                         psp[[j]])
     }
     
   }
@@ -295,6 +298,7 @@ plotAAfreqs_pos = function(position, db) {
   
   f = FREQS %>%
     dplyr::group_by(aa, type) %>%
+    filter(type %in% c("PCP","PSP")) %>%
     dplyr::summarise(lower = quantile(frequency, q[1]),
                      upper = quantile(frequency, q[2]),
                      middle = quantile(frequency, 0.5),
@@ -319,15 +323,19 @@ plotAAfreqs_pos = function(position, db) {
                  alpha = .6,
                  # outlier.shape = NA
                  position = position_dodge(width = .5)) +
+    # scale_fill_manual("product type",
+    #                   values = c(plottingCols[["cis"]], plottingCols[["revCis"]],
+    #                              plottingCols[["trans"]], plottingCols[["PCP"]])) +
+    # scale_color_manual("product type",
+    #                    values = c(plottingCols[["cis"]], plottingCols[["revCis"]],
+    #                               plottingCols[["trans"]], plottingCols[["PCP"]])) +
     scale_fill_manual("product type",
-                      values = c(plottingCols[["cis"]], plottingCols[["revCis"]],
-                                 plottingCols[["trans"]], plottingCols[["PCP"]])) +
+                      values = c(plottingCols[["PCP"]], plottingCols[["PSP"]])) +
     scale_color_manual("product type",
-                       values = c(plottingCols[["cis"]], plottingCols[["revCis"]],
-                                  plottingCols[["trans"]], plottingCols[["PCP"]])) +
+                       values = c(plottingCols[["PCP"]], plottingCols[["PSP"]])) +
     xlab("amino acid") +
     ylab("normalised frequency") +
-    ylim(0,0.2) +
+    ylim(0,0.15) +
     ggtitle(paste0("position: ", position),
             subtitle = paste0("n = ",sum(n$n)," peptides --- ",
                               no_bootstraps, " bootstrap iterations with ", fraction*100, "% of the data, ",
@@ -356,6 +364,8 @@ dev.off()
 png("results/AAFreqs/AAfreq_P1_.png",width = 10, height = 4, res = 600, units = "in")
 plotAAfreqs_pos(position = "P1_", db)
 dev.off()
+
+
 
 
 # ---------- plotting aa-wise ----------

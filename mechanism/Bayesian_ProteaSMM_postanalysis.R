@@ -27,12 +27,12 @@ load("Bayesian_ProteaSMM/server/SR2poly_0615_extendedPos/posterior.RData")
 sr2_post = posterior
 
 # leave one out
-load("Bayesian_ProteaSMM/server/PCPpoly_0616_extendedPosLOV/posterior.RData")
-pcp_post = posterior
-load("Bayesian_ProteaSMM/server/SR1poly_0616_extendedPosLOV/posterior.RData")
-sr1_post = posterior
-load("Bayesian_ProteaSMM/server/SR2poly_0616_extendedPosLOV/posterior.RData")
-sr2_post = posterior
+# load("Bayesian_ProteaSMM/server/PCPpoly_0616_extendedPosLOV/posterior.RData")
+# pcp_post = posterior
+# load("Bayesian_ProteaSMM/server/SR1poly_0616_extendedPosLOV/posterior.RData")
+# sr1_post = posterior
+# load("Bayesian_ProteaSMM/server/SR2poly_0616_extendedPosLOV/posterior.RData")
+# sr2_post = posterior
 
 
 ### MAIN PART ###
@@ -55,9 +55,9 @@ plotCorrelation = function(inpFolder, posterior, burnin = 0.5) {
     t = log(t/100)
     t[!is.finite(t)] = NA
     
-    k = which(DATA$substrateIDs != "TSN5")
-    X = X[k,]
-    t = t[k,]
+    # k = which(DATA$substrateIDs != "TSN5")
+    # X = X[k,]
+    # t = t[k,]
     
   } else {
     
@@ -144,16 +144,16 @@ plotCorrelation = function(inpFolder, posterior, burnin = 0.5) {
   return(chain)
 }
 
-pdf("results/Bayesian_ProteaSMM/PLOTS/ALL_0616/_LOV_CORRELATION.pdf",width = 10, height = 10)
+pdf("results/Bayesian_ProteaSMM/PLOTS/ALL_0616/_CORRELATION.pdf",width = 10, height = 10)
 par(mfrow = c(3,3))
 pcp_chain = plotCorrelation(inpFolder = "data/ProteaSMM/PCP_SR1extfeat_P1/", posterior = pcp_post, burnin = 0.1)
 sr1_chain = plotCorrelation(inpFolder = "data/ProteaSMM/PSP_SR1extfeat_P1/", posterior = sr1_post, burnin = 0.1)
 sr2_chain = plotCorrelation(inpFolder = "data/ProteaSMM/PSP_SR2extfeat_P1_/", posterior = sr2_post, burnin = 0.1)
 dev.off()
 
-save(pcp_chain, file = "results/Bayesian_ProteaSMM/CHAINS/LOVpcp_chain.RData")
-save(sr1_chain, file = "results/Bayesian_ProteaSMM/CHAINS/LOVsr1_chain.RData")
-save(sr2_chain, file = "results/Bayesian_ProteaSMM/CHAINS/LOVsr2_chain.RData")
+# save(pcp_chain, file = "results/Bayesian_ProteaSMM/CHAINS/LOVpcp_chain.RData")
+# save(sr1_chain, file = "results/Bayesian_ProteaSMM/CHAINS/LOVsr1_chain.RData")
+# save(sr2_chain, file = "results/Bayesian_ProteaSMM/CHAINS/LOVsr2_chain.RData")
 
 save(pcp_chain, file = "results/Bayesian_ProteaSMM/CHAINS/pcp_chain.RData")
 save(sr1_chain, file = "results/Bayesian_ProteaSMM/CHAINS/sr1_chain.RData")
@@ -225,7 +225,7 @@ for (p in 1:length(pos)) {
   
 }
 
-ggsave(filename = "results/Bayesian_ProteaSMM/PLOTS/ALL_0615/_paramDistributions.pdf", 
+ggsave(filename = "results/Bayesian_ProteaSMM/PLOTS/ALL_0616/_paramDistributions.pdf", 
        plot = gridExtra::marrangeGrob(allP, nrow=6, ncol=2, byrow = F), 
        width = 15, height = 27, dpi = "retina")
 
@@ -256,7 +256,7 @@ for (a in 1:length(AAchar_here)) {
   allPaa[[a]] = cntP
 }
 
-ggsave(filename = "results/Bayesian_ProteaSMM/PLOTS/ALL_0615/_paramDistributions_aa-wise.pdf", 
+ggsave(filename = "results/Bayesian_ProteaSMM/PLOTS/ALL_0616/_paramDistributions_aa-wise.pdf", 
        plot = gridExtra::marrangeGrob(allPaa, nrow=7, ncol=3, byrow = T), 
        width = 35, height = 35, dpi = "retina")
 
@@ -286,7 +286,7 @@ paramHeatmap = function(chain, residues, nm) {
   
 }
 
-png("results/Bayesian_ProteaSMM/PLOTS/ALL_0615/PARAMETER_heatmap.png", height = 15, width = 40, units = "cm", res = 600)
+png("results/Bayesian_ProteaSMM/PLOTS/ALL_0616/PARAMETER_heatmap.png", height = 15, width = 40, units = "cm", res = 600)
 par(mfrow = c(1,3))
 paramHeatmap(chain = sr1_chain, residues = c("P6","P5","P4", "P3", "P2", "P1", "P-1", "P-2", "P-3", "P-4","P-5", "P-6"), nm = "SR1")
 paramHeatmap(chain = sr2_chain, residues = c("P-6_","P-5_","P-4_", "P-3_", "P-2_", "P-1_", "P1_", "P2_", "P3_", "P4_", "P5_", "P6_"), nm = "SR2")
@@ -300,7 +300,7 @@ bothR = bothR %>%
   mutate(col = ifelse(reactant == "SR1", "gray", "lightblue"),
          col = ifelse(reactant == "PCP", plottingCols["PCP"], col))
 
-pdf("results/Bayesian_ProteaSMM/PLOTS/ALL_0615/PARAMETER_CORRELATION_pos-wise.pdf", height = 7, width = 21)
+pdf("results/Bayesian_ProteaSMM/PLOTS/ALL_0616/PARAMETER_CORRELATION_pos-wise.pdf", height = 7, width = 21)
 par(mfrow = c(1,3))
 
 poi = c("P6/P6_","P5/P5_","P4/P4_","P3/P3_","P2/P2_","P1/P1_",
@@ -325,7 +325,7 @@ for (p in 1:length(poi)) {
 }
 dev.off()
 
-pdf("results/Bayesian_ProteaSMM/PLOTS/ALL_0615/PARAMETER_CORRELATION.pdf", height = 25, width = 25)
+pdf("results/Bayesian_ProteaSMM/PLOTS/ALL_0616/PARAMETER_CORRELATION.pdf", height = 25, width = 25)
 sapply(c("SR1","SR2","PCP"), function(t) {
   print(t)
   

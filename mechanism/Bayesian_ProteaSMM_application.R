@@ -20,6 +20,13 @@ load("results/Bayesian_ProteaSMM/CHAINS/LOVpcp_chain.RData")
 load("results/Bayesian_ProteaSMM/CHAINS/LOVsr1_chain.RData")
 load("results/Bayesian_ProteaSMM/CHAINS/LOVsr2_chain.RData")
 
+load("results/Analytical_ProteaSMM/PCP_SR1extfeat_P1/SMManalytical_PCP_LOV_P1.RData")
+pcp_chain = out$allParams
+load("results/Analytical_ProteaSMM/PSP_SR1extfeat_P1/SMManalytical_PSP_LOV_P1.RData")
+sr1_chain = out$allParams
+load("results/Analytical_ProteaSMM/PSP_SR2extfeat_P1_/SMManalytical_PSP_LOV_P1_.RData")
+sr2_chain = out$allParams
+
 # prediction target
 # load("data/MutPairs_aSPIre.RData")
 # Target = Kinetics[Kinetics$substrateID == "MM500", ]
@@ -29,7 +36,7 @@ load("results/Bayesian_ProteaSMM/CHAINS/LOVsr2_chain.RData")
 # Target = Kinetics[Kinetics$substrateID == "hTau", ]
 
 load("data/aSPIre.RData")
-Target = Kinetics[Kinetics$substrateID == "TSN5", ]
+Target = Kinetics[Kinetics$substrateID == "MM136", ]
 
 ### MAIN PART ###
 # ----- preprocessing of prediction target -----
@@ -237,8 +244,9 @@ getPrediction = function(DATA, params, nm) {
 
 suppressWarnings(dir.create("results/Bayesian_ProteaSMM/PREDICTION/"))
 suppressWarnings(dir.create("results/Bayesian_ProteaSMM/PREDICTION/POLYPEPTIDES/"))
+suppressWarnings(dir.create("results/Bayesian_ProteaSMM/PREDICTION/POLYPEPTIDES_ANALYTICAL/"))
 
-png("results/Bayesian_ProteaSMM/PREDICTION/POLYPEPTIDES/TSN5_220616.png", height = 9, width = 14, units = "in", res = 600)
+png("results/Bayesian_ProteaSMM/PREDICTION/POLYPEPTIDES_ANALYTICAL/TSN5_220616.png", height = 9, width = 14, units = "in", res = 600)
 par(mfrow = c(3,2))
 getPrediction(DATA = DATA_P1pcp, params = pcp_chain, nm = "PCP")
 getPrediction(DATA = DATA_P1psp, params = sr1_chain, nm = "SR1")

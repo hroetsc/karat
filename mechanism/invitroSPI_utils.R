@@ -12,9 +12,11 @@ library(stringr)
 plottingCols = c(
   PCP = "darkorange",
   PSP = "dodgerblue",
-  cis = "darkslateblue",
+  # cis = "darkslateblue",
+  cis = "royalblue3",
   revCis = "lightskyblue",
-  trans = "darkorchid",
+  # trans = "darkorchid",
+  trans = "mediumorchid3",
   allcis = "darkslateblue",
   multimapper = "gray",
   
@@ -28,8 +30,8 @@ plottingCols = c(
   
   SpechtDB = "olivedrab1",
   wholeDB = "olivedrab4",
-  ProteasomeDB = "olivedrab4",
-  randomDB = "lightsteelblue"
+  ProteasomeDB = "mediumseagreen",
+  randomDB = "gray"
 )
 
 

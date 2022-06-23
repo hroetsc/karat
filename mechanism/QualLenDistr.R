@@ -18,14 +18,17 @@ theme_set(theme_classic())
 
 
 ### INPUT ###
-load("data/invitroSPI.RData")
-load("data/randomDB_smart.RData")
+# load("data/invitroSPI.RData")
+# load("data/randomDB_smart.RData")
+
+load("../../proteinsPCPS/new/data/aSPIre.RData")
+load("../../proteinsPCPS/new/data/randomDB.RData")
 
 ### MAIN PART ###
 suppressWarnings(dir.create("results/length/"))
 
 # ------ preprocessing -----
-DB = ProteasomeDB %>%
+DB = Kinetics %>%
   ILredundancy() %>%
   disentangleMultimappers.Type() %>%
   disentangleMultimappers.SRlen() %>%

@@ -24,8 +24,8 @@ load("data/invitroSPI.RData")
 load("data/aSPIre.RData")
 
 ### MAIN PART ###
-# DB = Kinetics %>% uniquePeptides()
-DB = ProteasomeDB
+DB = Kinetics %>% uniquePeptides()
+# DB = ProteasomeDB
 S = DB$substrateID %>% unique()
 # S = c("TSN2","TSN89","TSN5")
 tps = "all"
@@ -226,8 +226,8 @@ rndDB$productType[k] = "PCP"
 # ----- 4) quality control (heatmaps) -----
 # colour should be <= 2e-04
 
-# pdf("results/RANDOM_quant.pdf", height = 4, width = 8)
-pdf("results/RANDOM.pdf", height = 4, width = 8)
+pdf("results/RANDOM_quant.pdf", height = 4, width = 8)
+# pdf("results/RANDOM.pdf", height = 4, width = 8)
 plotHeatmap(rndDB)
 
 cnt = disentangleMultimappers.Type(rndDB)
@@ -237,6 +237,6 @@ dev.off()
 
 
 ### OUTPUT ###
-# save(rndDB, file = "data/randomDB_aSPIre.RData")
-save(rndDB, file = "data/randomDB.RData")
+save(rndDB, file = "data/randomDB_aSPIre.RData")
+# save(rndDB, file = "data/randomDB.RData")
 

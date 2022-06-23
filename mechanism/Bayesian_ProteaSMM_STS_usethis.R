@@ -37,26 +37,31 @@ leaveOut = opt$leaveOut
 cntleaveOut = opt$cntleaveOut
 cntSubstrate = opt$substrate
 
-# hyperparameters
-# inpFolder = "data/ProteaSMM/PCP_SR1extfeat_P1/"
-# folderN = "results/Bayesian_ProteaSMM/SR2poly_0615_extendedPosLOV/"
 
 pseudo = 1e-05
 
 ### INPUT ###
-load(paste0(inpFolder,"DATA.RData"))
-X = DATA$X
+inpFolder = "data/ProteaSMM/PSP_STS/"
+folderN = "results/Bayesian_ProteaSMM/STS_0621/"
 
+load(paste0(inpFolder,"DATA.RData"))
+# load(paste0(inpFolder, "analytical_prior.RData"))
+X = DATA$X
 t = DATA$t
+
+# keep = which(rowSums(t) > 0)
+# t = t[keep, ]
+# X = X[keep, ]
+# subIDs = DATA$substrateIDs[keep]
+
 t = log(t/100+pseudo)
+# t = log(t/100)
 t[!is.finite(t)] = NA
 
-k = which(!DATA$substrateIDs %in% c(leaveOut, cntleaveOut))
-# k = which(DATA$substrateIDs != cntleaveOut)
-# k = which(DATA$substrateIDs == cntSubstrate)
+
+k = which(!DATA$substrateIDs == "MM582")
 X = X[k, ]
 t = t[k, ]
-
 
 suppressWarnings(dir.create(folderN, recursive = T))
 
@@ -64,29 +69,11 @@ numRep = ncol(t)
 numParam = ncol(X)+1
 
 ### MAIN PART ###
-# ---- generate in silico data set -----
-# tsample = X%*%runif(n = ncol(X), min = 0, max = 0.5)
-# density(tsample) %>% plot()
-# 
-# ptheor = ginv(X)%*%t
-# ptheor = (0.8-0.1)*(ptheor - min(ptheor)) / (max(ptheor) - min(ptheor)) + 0.1
-# ttheor = X%*%log(ptheor)
-# density(ttheor) %>% plot()
-# density(t) %>% lines()
-# 
-# simulated = list(X = X,
-#                  scores = ptheor,
-#                  t = ttheor)
-# save(simulated, file = "results/Bayesian_ProteaSMM/PCP_SR1feat_P1_proofRealDistr/logP_simulatedData.RData")
-
-# scores = ptheor
-# t = ttheor
-
 # ---- settings -----
 Niter = 5*10**5
 
 mini = rep(0,numParam)  # 1 parameter more than required by model --> sigma
-maxi = rep(2,numParam)
+maxi = rep(1.3,numParam)
 
 mini[length(mini)] = 0
 maxi[length(maxi)] = 10 # initial sigma
@@ -133,8 +120,6 @@ plotChain <- function(chain){
   tsim = matrix(NA,dim(param)[1],nrow(t))
   for(i in 1:dim(param)[1]){
     tsim[i,] = X%*%log(p[i,])
-    # tsim[i,which(tsim[i,]<0)] = 0
-    # tsim[i,which(tsim[i,]>1)] = 1
   }
   
   
@@ -143,12 +128,12 @@ plotChain <- function(chain){
   
   maxi = max(c(as.vector(t),as.vector(tsim)), na.rm = T)
   mini = min(c(as.vector(t),as.vector(tsim)), na.rm = T)
-  boxplot(tsim,outline=FALSE,ylim=c(mini,maxi),
-          lty = "blank", whisklty="blank", medlty = "solid")
-  
-  sapply(c(1:numRep), function(r){
-    points(c(1:nrow(t)),t[,r],col="red", cex = .4)
-  })
+  # boxplot(tsim,outline=FALSE,ylim=c(mini,maxi),
+  #         lty = "blank", whisklty="blank", medlty = "solid")
+  # 
+  # sapply(c(1:numRep), function(r){
+  #   points(c(1:nrow(t)),t[,r],col="red", cex = .4)
+  # })
   
   PP = chain[-(1:burnIn),]
   colnames(PP) = paramNames
