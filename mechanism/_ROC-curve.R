@@ -1,4 +1,9 @@
 
+library(dplyr)
+library(DescTools)
+library(ggplot2)
+theme_set(theme_classic())
+
 # ----- ROC curve ------
 
 getROCcurve = function(ttrue_mean, tsims_mean, substrate, threshPerc = 0.01, retValsOnly=F) {
@@ -22,8 +27,8 @@ getROCcurve = function(ttrue_mean, tsims_mean, substrate, threshPerc = 0.01, ret
   k = order(ttrue_mean, decreasing = F)
   ttrue_mean = ttrue_mean[k]
   
-  predThresh = log(threshPerc+pseudo)
-  trueBinary = ifelse(ttrue_mean > predThresh, 1, 0)
+  # predThresh = log(threshPerc+pseudo)
+  trueBinary = ifelse(ttrue_mean > threshPerc, 1, 0)
   
   tsims_mean = tsims_mean[k]
   
@@ -65,13 +70,17 @@ getROCcurve = function(ttrue_mean, tsims_mean, substrate, threshPerc = 0.01, ret
   
   # AUC
   pr.na = which(! is.na(curve$precision | curve$recall))
-  pr.auc = AUC(curve$recall[pr.na],
-               curve$precision[pr.na])
+  pr.auc = try(AUC(curve$recall[pr.na],curve$precision[pr.na]))
+  if("try-error" %in% class(pr.auc)) {
+    pr.auc = NA
+  }
   
   
   roc.na = which(! is.na(curve$sensitivity | curve$specificity))
-  roc.auc = AUC(curve$specificity[roc.na],
-                curve$sensitivity[roc.na])
+  roc.auc = try(AUC(curve$specificity[roc.na],curve$sensitivity[roc.na]))
+  if("try-error" %in% class(roc.auc)) {
+    roc.auc = NA
+  }
   
   if (retValsOnly) {
     

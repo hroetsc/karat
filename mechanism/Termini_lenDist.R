@@ -98,15 +98,16 @@ prots_SR = fetchSRs(proteins)
 po = ggplot(polypeps_SR, aes(x=len, y = n, fill = sr)) +
   geom_bar(stat = "identity", position = "dodge") +
   scale_x_continuous(breaks = seq(1,30,2)) +
-  scale_fill_manual("", values = c("gray","lightblue"), labels = c("SR1 (N-terminus)","SR2 (C-terminus)")) +
+  scale_fill_manual("", values = c("slategray","turquoise"), labels = c("SR1 (N-terminus)","SR2 (C-terminus)")) +
   xlab("splice-reactant length (aa residues)") +
   ylab("counts") +
   ggtitle("polypeptides")
+po
 
 pr = ggplot(prots_SR, aes(x=len, y = n, fill = sr)) +
   geom_bar(stat = "identity", position = "dodge") +
   scale_x_continuous(limits = c(1,30), breaks = seq(1,30,2)) +
-  scale_fill_manual("", values = c("gray","lightblue"), labels = c("SR1 (N-terminus)","SR2 (C-terminus)")) +
+  scale_fill_manual("", values = c("slategray","turquoise"), labels = c("SR1 (N-terminus)","SR2 (C-terminus)")) +
   xlab("splice-reactant length (aa residues)") +
   ylab("counts") +
   ggtitle("proteins")
@@ -122,7 +123,7 @@ suppressWarnings(dir.create("results/termini/singleAASR2/"))
 poq = ggplot(Qpolypeps_SR, aes(x=len, y = n, fill = sr)) +
   geom_bar(stat = "identity", position = "dodge") +
   scale_x_continuous(breaks = seq(1,30,2)) +
-  scale_fill_manual("", values = c("gray","lightblue"), labels = c("SR1 (N-terminus)","SR2 (C-terminus)")) +
+  scale_fill_manual("", values = c("slategray","turquoise"), labels = c("SR1 (N-terminus)","SR2 (C-terminus)")) +
   xlab("splice-reactant length (aa residues)") +
   ylab("counts") +
   ggtitle("polypeptides - quantitative data set")
@@ -168,6 +169,7 @@ MASTER = left_join(MASTER, df_filter)
 
 MASTERk = MASTER %>%
   filter(contains_term == "C" & len < 3)
+
 plotKinetics(MASTERk, outfile = "results/termini/singleAASR2/kinetics_SR2_1-2aa.pdf", meanTech = T, earlyOnly = T, sortByInt = T)
 plotKinetics(MASTER  %>% filter(contains_term == "N" & len < 3), outfile = "results/termini/singleAASR2/kinetics_SR1_1-2aa.pdf", meanTech = T, earlyOnly = T, sortByInt = T)
 
@@ -191,7 +193,7 @@ both = both %>%
 
 kinets = ggplot(both, aes(x = digestTime, y = int_norm, col = group)) +
   geom_smooth(method = "loess", se = T)+
-  scale_color_manual(values = c("gray","lightblue")) +
+  scale_color_manual(values = c("slategray","turquoise")) +
   ggtitle("summarised kinetics") +
   ylab("scaled intensity") +
   xlab("time [hrs]")
@@ -203,14 +205,15 @@ ggsave(filename = "results/termini/singleAASR2/kinetics_summarised_shortSRs.png"
 
 ## intensity distributions
 suma = MASTER %>% filter(digestTime == 4 & intensity > 0) %>% group_by(group) %>% summarise(med = median(log10(intensity+1)))
-intdist = ggplot(MASTER %>% filter(digestTime == 4 & intensity > 0), aes(x = log10(intensity+1), col = group)) +
+intdist = ggplot(MASTER %>% filter(digestTime == 4 & intensity > 0), aes(x = log10(intensity), col = group)) +
   geom_density() +
-  geom_vline(xintercept = suma$med, color =  c("olivedrab4","gray","lightblue"), lty = "dashed") +
-  scale_color_manual(values = c("olivedrab4","gray","lightblue")) +
-  xlab("log10(MS1 intensity + 1)")+
+  geom_vline(xintercept = suma$med, color =  c("mediumseagreen","slategray","turquoise"), lty = "dashed") +
+  scale_color_manual(values = c("mediumseagreen","slategray","turquoise")) +
+  xlab("log10(MS1 intensity")+
   ggtitle("intensity distribution of fwd. cis PSPs")
 
 ggsave(filename = "results/termini/singleAASR2/intensity_distr.png", plot = intdist,
-       height = 4, width = 6, dpi = "retina")
+       height = 3, width = 4, dpi = "retina")
 
 
+suma

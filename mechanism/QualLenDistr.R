@@ -44,6 +44,58 @@ RANDOM = rndDB %>%
 
 save(RANDOM, file = "data/randomDB_disentangled+unique.RData")
 
+# ----- statistical tests -----
+getStats = function(df, compare_col){
+  
+  if (length(compare_col) == 1) {
+    tps = df[,compare_col] %>% unique() %>% as.character()
+    pvals = matrix(NA, length(tps), length(tps))
+    colnames(pvals) = tps
+    rownames(pvals) = tps
+    
+  } else {
+    tps = df[,compare_col] %>% unique()
+    pvals = matrix(NA, length(unique(tps[,1])), length(unique(tps[,2])))
+    rownames(pvals) = unique(tps[,1])
+    colnames(pvals) = unique(tps[,2])
+  }
+  
+  for (i in 1:nrow(pvals)) {
+    for (j in i:ncol(pvals)) {
+      
+      if (length(compare_col) == 1){
+        xx = try(dgof::cvm.test(x = df$value[df[,compare_col] == rownames(pvals)[i]],
+                                y = ecdf(df$value[df[,compare_col] == colnames(pvals)[j]]),
+                                type = "A2")$p.value %>%
+                   as.numeric())
+        if ("try-error" %in% class(xx)) {
+          xx = try(twosamples::ad_test(a = df$value[df[,compare_col] == rownames(pvals)[i]],
+                                       b = df$value[df[,compare_col] == colnames(pvals)[j]])[2] %>%
+                     as.numeric())
+        }
+        pvals[i,j] = if (!"try-error" %in% class(xx)) xx else NA
+        
+        
+      } else {
+        xx = try(dgof::cvm.test(x = df$value[df[,compare_col[1]] == rownames(pvals)[i] & df[,compare_col[2]] == colnames(pvals)[1]],
+                                y = ecdf(df$value[df[,compare_col[1]] == rownames(pvals)[i] & df[,compare_col[2]] == colnames(pvals)[2]]),
+                                type = "A2")$p.value %>%
+                   as.numeric())
+        if ("try-error" %in% class(xx)) {
+          xx = try(twosamples::ad_test(a = df$value[df[,compare_col[1]] == rownames(pvals)[i] & df[,compare_col[2]] == colnames(pvals)[1]],
+                                       b = df$value[df[,compare_col[1]] == rownames(pvals)[i] & df[,compare_col[2]] == colnames(pvals)[2]])[2] %>%
+                     as.numeric())
+        }
+        pvals[i,1] = if (!"try-error" %in% class(xx)) xx else NA
+      }
+      
+    }
+  }
+  
+  print("Discrete Cramer-von Mises Goodness-of-Fit Test using Anderson-Darling alternative")
+  print(compare_col)
+  print.data.frame(as.data.frame(pvals))
+}
 
 # ----- peptide length -----
 trueDB = DB
@@ -132,6 +184,12 @@ SRLength = function(trueDB, randomDB) {
     ggtitle("", subtitle = "SR2 length distribution")
   srLen = gridExtra::grid.arrange(sr1Len, sr2Len, ncol=2)
   
+  print("SR1")
+  getStats(df = sr1, compare_col = c("type","db"))
+  print("SR2")
+  getStats(df = sr2, compare_col = c("type","db"))
+  
+  
   # SR1 vs SR2
   sr = srlen(db = trueDB, db_name = "ProteasomeDB") %>% 
     select(-db) %>%
@@ -151,9 +209,11 @@ SRLength = function(trueDB, randomDB) {
     scale_fill_manual("SR", values = c("gray","lightblue"), labels = c("SR1","SR2")) +
     theme(axis.text.x = element_text(angle = 90))
   
+  getStats(df = sr, compare_col = c("type","srtype"))
+  
   # save plots
-  ggsave(filename = "results/length/qual_SRLen.png", plot = srLen, dpi = "retina", height = 6, width = 12)
-  ggsave(filename = "results/length/qual_SR1vsSR2.png", plot = sr_plot, dpi = "retina", height = 6, width = 6)
+  ggsave(filename = "results/length/qual_SRLen.png", plot = srLen, dpi = "retina", height = 4, width = 8)
+  ggsave(filename = "results/length/qual_SR1vsSR2.png", plot = sr_plot, dpi = "retina", height = 4, width = 4)
 }
 
 SRLength(DB, RANDOM)

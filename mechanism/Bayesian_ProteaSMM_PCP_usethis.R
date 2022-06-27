@@ -26,7 +26,9 @@ option_list = list(
   make_option(c('-o', '--leaveOut'), type = 'character', default = "MM136",
               help = 'substrate left completely out'),
   make_option(c('-c', '--cntleaveOut'), type = 'character', default = "",
-              help = 'substrate left out in current CV'))
+              help = 'substrate left out in current CV'),
+  make_option(c('-p', '--parameters'), type = 'character', default = "none",
+              help = 'parameters used for inference'))
 
 opt_parser = OptionParser(option_list=option_list)
 opt = parse_args(opt_parser)
@@ -36,6 +38,7 @@ inpFolder = opt$inpFolder
 leaveOut = opt$leaveOut
 cntleaveOut = opt$cntleaveOut
 cntSubstrate = opt$substrate
+parameters = opt$parameters
 
 # hyperparameters
 # inpFolder = "data/ProteaSMM/PCP_SR1extfeat_P1/"
@@ -44,8 +47,15 @@ cntSubstrate = opt$substrate
 pseudo = 1e-05
 
 ### INPUT ###
+
 load(paste0(inpFolder,"DATA.RData"))
 X = DATA$X
+
+if(parameters != "none") {
+  load(paste0(inpFolder,"/",parameters))
+  X = X[,colnames(X) %in% params]
+}
+
 
 t = DATA$t
 t = log(t/100+pseudo)

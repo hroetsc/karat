@@ -180,7 +180,9 @@ getPlots = function(DB, target, suffix, limited = F) {
          width = 20, height = 24, dpi = "retina")
   
   
-  
+  names(allP) = names(dat)[(ncol(data)+1):ncol(dat)]
+  return(list(allP = allP,
+              data = data))
 }
 
 
@@ -188,6 +190,9 @@ getPlots = function(DB, target, suffix, limited = F) {
 nm = intersect(names(proteins), names(polypeps))
 ALL = rbind(proteins[,nm], polypeps[,nm])
 table(ALL$spliceType)
+
+table(uniquePeptides(ALL)$productType)
+unique(ALL$substrateID) %>% length()
 
 # downsample the random databases
 x = nrow(Kinetics)*2
@@ -198,11 +203,54 @@ randomQuant_down = randomQuant[sample(seq(1,nrow(randomQuant)), x), ] %>%
 # targets = c("P4", "P3", "P2", "P1", "P1_", "P2_", "P3_", "P4_")
 targets = c("P1","P-1","P1_")
 sapply(targets, function(t){
-  getPlots(DB = polypeps, target = t, suffix = "_PolypepTrueLim", limited = T)
+  # getPlots(DB = polypeps, target = t, suffix = "_PolypepTrueLim", limited = T)
   getPlots(DB = ALL, target = t, suffix = "_trueLim", limited = T)
   # getPlots(DB = randomQuant_down, target = t, suffix = "_random")
 })
 
+P1 = getPlots(DB = ALL, target = "P1", suffix = "_trueLim", limited = T)
+Pm1 = getPlots(DB = ALL, target = "P-1", suffix = "_trueLim", limited = T)
+
+
+# ----- plots for thesis -----
+pval = ad_test(P1$data$scs_mean, P1$data$psp_mean)[2]
+
+p = ggplot(P1$data, aes(x = scs_mean, y = psp_mean)) +
+  geom_point() +
+  xlab("cleavage strength (%)") +
+  ylab("splicing strength (%)") +
+  ggtitle("", subtitle = paste0("all residues, n=", nrow(P1$data), ", p = ", pval)) +
+  xlim(0,lim) + ylim(0,lim)
+p = ggExtra::ggMarginal(p, type = "density", size = 8)
+p
+
+ggsave(filename = "results/SCS+PSP/_forthesis_P1.png", plot = p, height = 3.5, width = 3.5, dpi = "retina")
+
+
+pval = ad_test(Pm1$data$scs_mean, Pm1$data$psp_mean)[2]
+
+p = ggplot(Pm1$data, aes(x = scs_mean, y = psp_mean)) +
+  geom_point() +
+  xlab("cleavage strength (%)") +
+  ylab("splicing strength (%)") +
+  ggtitle("", subtitle = paste0("all residues, n=", nrow(Pm1$data), ", p = ", pval)) +
+  xlim(0,lim) + ylim(0,lim)
+p = ggExtra::ggMarginal(p, type = "density", size = 8)
+p
+
+ggsave(filename = "results/SCS+PSP/_forthesis_P-1.png", plot = p, height = 3.5, width = 3.5, dpi = "retina")
+
+
+ggsave(filename = "results/SCS+PSP/_forthesis_P1_P.png", plot = P1$allP$P, height = 3.5, width = 3.5, dpi = "retina")
+ggsave(filename = "results/SCS+PSP/_forthesis_P1_G.png", plot = P1$allP$G, height = 3.5, width = 3.5, dpi = "retina")
+ggsave(filename = "results/SCS+PSP/_forthesis_P1_M.png", plot = P1$allP$M, height = 3.5, width = 3.5, dpi = "retina")
+ggsave(filename = "results/SCS+PSP/_forthesis_P1_F.png", plot = P1$allP$`F`, height = 3.5, width = 3.5, dpi = "retina")
+ggsave(filename = "results/SCS+PSP/_forthesis_P1_R.png", plot = P1$allP$R, height = 3.5, width = 3.5, dpi = "retina")
+ggsave(filename = "results/SCS+PSP/_forthesis_P1_H.png", plot = P1$allP$H, height = 3.5, width = 3.5, dpi = "retina")
+
+
+ggsave(filename = "results/SCS+PSP/_forthesis_P-1_P.png", plot = Pm1$allP$P, height = 3.5, width = 3.5, dpi = "retina")
+ggsave(filename = "results/SCS+PSP/_forthesis_P-1_G.png", plot = Pm1$allP$G, height = 3.5, width = 3.5, dpi = "retina")
 
 
 ################################################################################

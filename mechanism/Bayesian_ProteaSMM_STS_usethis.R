@@ -42,14 +42,22 @@ pseudo = 1e-05
 
 ### INPUT ###
 inpFolder = "data/ProteaSMM/PSP_STS/"
-folderN = "results/Bayesian_ProteaSMM/STS_0621/"
+folderN = "results/Bayesian_ProteaSMM/STS_0627/"
 
 load(paste0(inpFolder,"DATA.RData"))
 # load(paste0(inpFolder, "analytical_prior.RData"))
 X = DATA$X
 t = DATA$t
+subIDs = DATA$substrateIDs
 
-# keep = which(rowSums(t) > 0)
+nn = which(rowSums(t, na.rm = T) > 0)
+nn2 = which(rowSums(t, na.rm = T) == 0)
+discard = sample(nn2, size = length(nn2)-length(nn))
+
+X = X[-discard,]
+t = t[-discard,]
+subIDs = subIDs[-discard]
+
 # t = t[keep, ]
 # X = X[keep, ]
 # subIDs = DATA$substrateIDs[keep]
@@ -59,9 +67,10 @@ t = log(t/100+pseudo)
 t[!is.finite(t)] = NA
 
 
-k = which(!DATA$substrateIDs == "MM582")
+k = which(subIDs != "MM582")
 X = X[k, ]
 t = t[k, ]
+
 
 suppressWarnings(dir.create(folderN, recursive = T))
 

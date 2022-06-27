@@ -65,6 +65,9 @@ PrecursorLength = function(trueDB) {
 polypeps = PrecursorLength(polypeps)
 proteins = PrecursorLength(proteins)
 
+table(polypeps$productType[polypeps$precLen %in% pepLen_polypeps])
+table(proteins$productType[proteins$precLen %in% pepLen_prots])
+
 # ----- theoretical precursor length -----
 
 getPrecursorComparison = function(DB, pepLen, dataset, reactant = "SR1") {
@@ -206,9 +209,9 @@ getPrecursorComparison = function(DB, pepLen, dataset, reactant = "SR1") {
     print()
   
   ggsave(filename = paste0("results/precursor_lengths/prec_",dataset,"_", reactant,".png"),
-         plot = prl, dpi = "retina", height = 6, width = 6)
+         plot = prl, dpi = "retina", height = 4, width = 4)
   ggsave(filename = paste0("results/precursor_lengths/TYPESprec_",dataset,"_", reactant,".png"),
-         plot = precComp, dpi = "retina", height = 6, width = 6)
+         plot = precComp, dpi = "retina", height = 4, width = 4)
   
 }
 

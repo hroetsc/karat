@@ -17,7 +17,7 @@ plottingCols = c(
   revCis = "lightskyblue",
   # trans = "darkorchid",
   trans = "mediumorchid3",
-  allcis = "darkslateblue",
+  allcis = "royalblue",
   multimapper = "gray",
   
   PaesM = "gray",

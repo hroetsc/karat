@@ -54,6 +54,7 @@ randomDB = rbind(rndDB_poly,rndDB) %>%
 
 table(DB$spliceType)
 table(DB$productType)
+length(unique(DB$substrateID))
 table(randomDB$spliceType)
 
 # ---------- relevant info ----------
@@ -71,7 +72,8 @@ SR2pos = c("P-4_"=-4, "P-3_"=-3, "P-2_"=-2, "P-1_"=-1,
            "P1_"=0, "P2_"=1, "P3_"=2, "P4_"=3)
 
 PCPpos = c("P4"=-3, "P3"=-2, "P2"=-1, "P1"=0,
-           "P1_"=1, "P2_"=2, "P3_"=3, "P4_"=4)
+           "P1_"=1, "P2_"=2, "P3_"=3, "P4_"=4,
+           "P-1"=1, "P-2"=2, "P-3"=3, "P-4"=4)
 
 SRnames = c(names(SR1pos), names(SR2pos))
 types = c("cis", "revCis", "trans", "PCP", "PSP")
@@ -342,6 +344,9 @@ plotAAfreqs_pos = function(position, db) {
                               (q[2] - q[1])*100, "% confidence interval"))
   aaFreqs
   
+  t.test(FREQS$frequency[FREQS$aa == "H" & FREQS$type == "PCP"],
+         FREQS$frequency[FREQS$aa == "H" & FREQS$type == "PSP"])
+  
   return(aaFreqs)
 }
 
@@ -355,7 +360,7 @@ dev.off()
 
 # cairo_ps(filename = "results/AAFreqs/AAfreq_P1.ps", onefile = T,
 #          fallback_resolution = 600, width = 10, height = 4)
-png("results/AAFreqs/AAfreq_P1.png",width = 10, height = 4, res = 600, units = "in")
+png("results/AAFreqs/AAfreq_P1.png",width = 8, height = 3, res = 600, units = "in")
 plotAAfreqs_pos(position = "P1", db)
 dev.off()
 
@@ -365,6 +370,9 @@ png("results/AAFreqs/AAfreq_P1_.png",width = 10, height = 4, res = 600, units = 
 plotAAfreqs_pos(position = "P1_", db)
 dev.off()
 
+png("results/AAFreqs/AAfreq_P-1.png",width = 10, height = 4, res = 600, units = "in")
+plotAAfreqs_pos(position = "P-1", db)
+dev.off()
 
 
 

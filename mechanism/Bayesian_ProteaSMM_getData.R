@@ -28,7 +28,7 @@ proteins = Kinetics
 nm = intersect(names(polypeps), names(proteins))
 # rbind(polypeps[,nm] %>% mutate(dataset = "polypeps"),
 #       proteins[,nm] %>% mutate(dataset = "proteins"))
-Quant = polypeps %>% mutate(dataset = "polypeps") %>%
+Quant = proteins %>% mutate(dataset = "proteins") %>%  # !!!!!!!!
   # ILredundancy() %>%
   disentangleMultimappers.Type() %>%
   tidyr::separate_rows(digestTimes, intensities, sep=";") %>%
@@ -197,7 +197,7 @@ getData = function(target, SRpos, col, nCol, nm, features_from) {
   allCombos = do.call(paste, c(allCombos[c("interesting_residues","AAchar_here_sorted")], sep=";"))
   
   # get SCS and PSP for P1 or P1' for each bio rep
-  out = SCSandPSP_allSubs(Quant, target, meanOverBio = F, Zscale = F, SR2forSCS = T)
+  out = SCSandPSP_allSubs(Quant, target, meanOverBio = F, Zscale = F, SR2forSCS = T, localStrength = T)
   yPredDF = plyr::ldply(out) %>%
     as.data.frame()
   yPredDF$target = target
@@ -244,9 +244,9 @@ getData = function(target, SRpos, col, nCol, nm, features_from) {
   #   X = X[-rem,]
   # }
   
-  pdf(file = paste0(fname, "DATA.pdf"), width = 50, height = 50)
-  pheatmap(cbind(X, t/100), cluster_cols = F) %>% print()
-  dev.off()
+  # pdf(file = paste0(fname, "DATA.pdf"), width = 50, height = 50)
+  # pheatmap(cbind(X, t/100), cluster_cols = F) %>% print()
+  # dev.off()
   
   # t[-grep("MM",ALL$substrateID),] %>% as.vector() %>% log10() %>% na.omit() %>% density() %>% plot(ylim = c(0,.5))
   # t[grep("MM",ALL$substrateID),] %>% as.vector() %>% log10() %>% na.omit() %>% density() %>% lines(col = "red")
@@ -256,7 +256,7 @@ getData = function(target, SRpos, col, nCol, nm, features_from) {
               t = t,
               substrateIDs = ALL$substrateID)
   
-  save(DATA, file = paste0(fname, "DATA.RData"))
+  save(DATA, file = paste0(fname, "DATA_proteinsOnly.RData"))
 }
 
 # ----- just 4 positions -----

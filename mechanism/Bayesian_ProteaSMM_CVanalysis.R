@@ -30,11 +30,11 @@ rcol <- rf(100)
 
 
 ### INPUT ###
-fs = list.files("Bayesian_ProteaSMM/server/singleSubs_PCP_0621/", pattern = "posterior.RData", recursive = T, full.names = T)
-load("data/ProteaSMM/PCP_SR1extfeat_P1/DATA.RData")
+# fs = list.files("Bayesian_ProteaSMM/server/singleSubs_PCP_0621/", pattern = "posterior.RData", recursive = T, full.names = T)
+# load("data/ProteaSMM/PCP_SR1extfeat_P1/DATA.RData")
 
-# fs = list.files("Bayesian_ProteaSMM/server/singleSubs_SR1/", pattern = "posterior.RData", recursive = T, full.names = T)
-# load("data/ProteaSMM/PSP_SR1extfeat_P1/DATA.RData")
+fs = list.files("Bayesian_ProteaSMM/server/singleSubs_SR1_0623/", pattern = "posterior.RData", recursive = T, full.names = T)
+load("data/ProteaSMM/PSP_SR1extfeat_P1/DATA.RData")
 
 
 ### MAIN PART ###
@@ -76,7 +76,7 @@ CHAINS = lapply(fs, function(f){
 names(CHAINS) = fs
 CHAINSdf = plyr::ldply(CHAINS)
 
-save(CHAINS, file = "results/Bayesian_ProteaSMM/PLOTS/LOV/PCP_chains_0622.RData")
+save(CHAINS, file = "results/Bayesian_ProteaSMM/PLOTS/LOV/PSP_chains_0623.RData")
 
 # ----- plot posterior distributions -----
 allParamLim = list()
@@ -96,14 +96,18 @@ for (j in 2:ncol(CHAINSdf)) {
 }
 
 
-ggsave(filename = "results/Bayesian_ProteaSMM/PLOTS/LOV/0622_PCPposteriors_priorRange.pdf", 
+ggsave(filename = "results/Bayesian_ProteaSMM/PLOTS/LOV/0623_PSPposteriors_priorRange.pdf", 
        plot = gridExtra::marrangeGrob(allParamLim, nrow=5, ncol=5, byrow = T), 
        width = 20, height = 20, dpi = "retina")
 
 # ----- prediction on left-out data set -----
+zscale = function(x) {
+  return((x - min(x)) / (max(x) - min(x)))
+}
+
 left_out = str_extract_all(fs, pattern = "[:alnum:]+(?=/posterior.RData)", simplify = T) %>% as.vector()
 
-pdf("results/Bayesian_ProteaSMM/PLOTS/LOV/0622_PCPperformance.pdf", height = 5*4, width = 3*4)
+pdf("results/Bayesian_ProteaSMM/PLOTS/LOV/0623_PSPperformance.pdf", height = 5*4, width = 3*4)
 par(mfrow = c(5,3))
 
 PCC = rep(NA, length(CHAINS))
@@ -156,7 +160,7 @@ for (i in 1:length(CHAINS)) {
          code = 3, angle = 90, length = 0.03, lwd = .5) %>% suppressWarnings()
   
   PCC[i] = pcc
-  allROCs[[i]] = getROCcurve(ttrue_mean, tsims_mean, substrate = left_out[i], threshPerc = 0.01)
+  allROCs[[i]] = getROCcurve(zscale(ttrue_mean), zscale(tsims_mean), substrate = left_out[i], threshPerc = 0.5)
 }
 
 barplot(PCC)
@@ -164,7 +168,7 @@ barplot(PCC)
 dev.off()
 
 
-pdf("results/Bayesian_ProteaSMM/PLOTS/LOV/0622_PCPbinaryperformance.pdf", height = 4, width = 8)
+pdf("results/Bayesian_ProteaSMM/PLOTS/LOV/0623_PSPbinaryperformance.pdf", height = 4, width = 8)
 lapply(allROCs, function(cnt){
   gridExtra::grid.arrange(cnt[[1]], cnt[[2]], ncol = 2)
 })
@@ -186,13 +190,13 @@ ttrue_mean = apply(t[keep, ],1,mean,na.rm = T)
 ttrue_sd = apply(t[keep, ],1,sd,na.rm = T)
 
 
-pdf("results/Bayesian_ProteaSMM/PLOTS/LOV/0622_PCP_MM582.pdf", height = 5, width = 8)
+pdf("results/Bayesian_ProteaSMM/PLOTS/LOV/0623_PSP_MM582.pdf", height = 5, width = 8)
 # correlation coefficient
 pcc = cor(ttrue_mean, tsims_mean)
 
 plot(x = ttrue_mean, y = tsims_mean,
      pch = 16, xlab = "true", ylab = "predicted",
-     main = paste0(left_out[i], ", PCC = ", round(pcc,4)))
+     main = paste0("MM582, PCC = ", round(pcc,4)))
 
 abline(a = 0, b = 1, col = "red")
 abline(v = log(0.01+pseudo), lty = "dashed", col = "blue")
@@ -207,7 +211,7 @@ arrows(x0 = ttrue_mean, x1 = ttrue_mean,
        y0 = tsims_mean+tsims_sd, y1 = tsims_mean-tsims_sd,
        code = 3, angle = 90, length = 0.03, lwd = .5) %>% suppressWarnings()
 
-roc = getROCcurve(ttrue_mean, tsims_mean, substrate = "MM582", threshPerc = 0.01)
+roc = getROCcurve(zscale(ttrue_mean), zscale(tsims_mean), substrate = "MM582", threshPerc = 0.5)
 gridExtra::grid.arrange(roc[[1]], roc[[2]], ncol = 2)
 dev.off()
 
@@ -242,7 +246,7 @@ Poscolors = data.frame(. = c("P6","P5","P4", "P3", "P2", "P1",
 Poscolors = left_join(positions, Poscolors)
 
 
-pdf("results/Bayesian_ProteaSMM/PLOTS/LOV/0622_PCP-PCAslopiness.pdf", height = 8, width = 18)
+pdf("results/Bayesian_ProteaSMM/PLOTS/LOV/0623_PSP-PCAslopiness.pdf", height = 8, width = 18)
 
 # ----- sloppy parameters
 par(mfrow = c(2,1))
@@ -289,6 +293,7 @@ dev.off()
 
 # ----- contribution of parameters/positions to certain PCs -----
 
+pdf("results/Bayesian_ProteaSMM/PLOTS/LOV/0623_PSP-PCAloadings.pdf", height = 12, width = 24)
 positions = c("P6","P5","P4", "P3", "P2", "P1","P-1","P-2","P-3","P-4","P-5","P-6")
 pcs = paste0("PC",seq(1,ncol(PCs$vectors)))
 
@@ -312,21 +317,21 @@ posGroup = apply(posGroup,2,function(x){
 image(posGroup %>% t(), axes = F, col = rcol,
       xlab = "principal component",
       ylab = "position",
-      sub = "z-scaled PCA loadings - low: blue, high: red")
+      sub = "column-wise z-scaled PCA loadings - 0: blue, 1: red")
 axis(2, at = seq(0,1,1/(length(positions)-1)), labels = positions)
 axis(1, at = seq(0,1,1/(length(pcs)/10)), labels = c(pcs[seq(1,250,10)], "PC250"))
 
-# cluster based on first and last PC contributions
-cl = hdbscan(posGroup[,paste0("PC",seq(1,12))], minPts = 2)
-plot(cl$hc,
-     main = "sloppiness",
-     xlab = "HDBSCAN* Hierarchy",
-     labels = positions)
-cl = hdbscan(posGroup[,paste0("PC",seq(239,250))], minPts = 2)
-plot(cl$hc,
-     main = "stiffness",
-     xlab = "HDBSCAN* Hierarchy",
-     labels = positions)
+# # cluster based on first and last PC contributions
+# cl = hdbscan(posGroup[,paste0("PC",seq(1,12))], minPts = 2)
+# plot(cl$hc,
+#      main = "sloppiness",
+#      xlab = "HDBSCAN* Hierarchy",
+#      labels = positions)
+# cl = hdbscan(posGroup[,paste0("PC",seq(239,250))], minPts = 2)
+# plot(cl$hc,
+#      main = "stiffness",
+#      xlab = "HDBSCAN* Hierarchy",
+#      labels = positions)
 
 
 # --- contribution of amino acids 
@@ -341,22 +346,22 @@ aaGroup = apply(aaGroup,2,function(x){
 image(aaGroup %>% t(), axes = F, col = rcol,
       xlab = "principal component",
       ylab = "amino acid",
-      sub = "z-scaled PCA loadings - low: blue, high: red")
+      sub = "column-wise z-scaled PCA loadings - 0: blue, 1: red")
 axis(2, at = seq(0,1,1/(length(AAchar_here)-1)), labels = AAchar_here)
 axis(1, at = seq(0,1,1/(length(pcs)/10)), labels = c(pcs[seq(1,250,10)], "PC250"))
 
-# cluster based on first and last PC contributions
-cl = hdbscan(aaGroup[,paste0("PC",seq(1,12))], minPts = 2)
-plot(cl$hc,
-     main = "sloppiness",
-     xlab = "HDBSCAN* Hierarchy",
-     labels = AAchar_here)
-cl = hdbscan(aaGroup[,paste0("PC",seq(239,250))], minPts = 2)
-plot(cl$hc,
-     main = "stiffness",
-     xlab = "HDBSCAN* Hierarchy",
-     labels = AAchar_here)
-
+# # cluster based on first and last PC contributions
+# cl = hdbscan(aaGroup[,paste0("PC",seq(1,12))], minPts = 2)
+# plot(cl$hc,
+#      main = "sloppiness",
+#      xlab = "HDBSCAN* Hierarchy",
+#      labels = AAchar_here)
+# cl = hdbscan(aaGroup[,paste0("PC",seq(239,250))], minPts = 2)
+# plot(cl$hc,
+#      main = "stiffness",
+#      xlab = "HDBSCAN* Hierarchy",
+#      labels = AAchar_here)
+dev.off()
 
 # ----- distributions of stiff and sloppy parameters -----
 numParam = length(paramNames)
@@ -369,15 +374,11 @@ lastLoadings = as.vector(abs(loadings[,(numParam-12+1):numParam]))
 names(lastLoadings) = rep(paramNames, 12)
 stiffParams = which(lastLoadings > quantile(lastLoadings, 0.9)) %>% names() %>% unique()
 
-sloppy = jointPosterior[,sloppyParams]
-stiff = jointPosterior[,stiffParams]
-
 
 # overlap between stiff and sloppy parameters
-euler(list(stiff = colnames(stiff),
-           sloppy = colnames(sloppy)), shape = "ellipse") %>% plot(quantities = T)
-colnames(stiff)[colnames(stiff) %in% colnames(sloppy)]
-
+euler(list(stiff = stiffParams,
+           sloppy = sloppyParams), shape = "ellipse") %>% plot(quantities = T)
+stiffParams[stiffParams %in% sloppyParams]
 
 
 # get parameter categories
@@ -422,11 +423,19 @@ priorEntropy = entropy(diff(y))
 DeltaH = priorEntropy - entropies
 barplot(DeltaH)
 
-DeltaH[DeltaH > quantile(DeltaH, 0.8)]
-DeltaH[DeltaH > quantile(DeltaH, 0.8)]
+informativeParams = names(DeltaH)[DeltaH > quantile(DeltaH, 0.7)]
+uninformativeParams = names(DeltaH)[DeltaH < quantile(DeltaH, 0.3)]
 
-informativeParams = names(DeltaH)[DeltaH > quantile(DeltaH, 0.8)]
-uninformativeParams = names(DeltaH)[DeltaH < quantile(DeltaH, 0.2)]
+
+# euler diagram
+png("results/Bayesian_ProteaSMM/PLOTS/LOV/0623_PSP_meaningfulParams.png", height = 4, width = 5, units = "in", res = 300)
+euler(list(stiff = stiffParams, sloppy = sloppyParams,
+           informative = informativeParams, uninformative = uninformativeParams),
+      shape = "ellipse") %>%
+  plot(quantities = T) %>%
+  print()
+dev.off()
+
 
 # plot
 jointPosteriorDF = jointPosteriorDF %>%
@@ -465,7 +474,7 @@ for (p in 1:length(pos)) {
   
 }
 
-ggsave(filename = "results/Bayesian_ProteaSMM/PLOTS/LOV/0622_PCP_PARAMETERS.pdf", 
+ggsave(filename = "results/Bayesian_ProteaSMM/PLOTS/LOV/0623_PSP_PARAMETERS.pdf", 
        plot = gridExtra::marrangeGrob(allP, nrow=6, ncol=2, byrow = F), 
        width = 15, height = 27, dpi = "retina")
 
@@ -494,20 +503,10 @@ for (a in 1:length(AAchar_here)) {
   
 }
 
-ggsave(filename = "results/Bayesian_ProteaSMM/PLOTS/LOV/0622_PCP_PARAMETERS_aawise.pdf", 
+ggsave(filename = "results/Bayesian_ProteaSMM/PLOTS/LOV/0623_PSP_PARAMETERS_aawise.pdf", 
        plot = gridExtra::marrangeGrob(allPaa, nrow=7, ncol=3, byrow = T), 
        width = 28, height = 28, dpi = "retina")
 
-
-
-# euler diagram
-png("results/Bayesian_ProteaSMM/PLOTS/LOV/0622_PCP_meaningfulParams.png", height = 4, width = 5, units = "in", res = 300)
-euler(list(stiff = stiffParams, sloppy = sloppyParams,
-           informative = informativeParams, uninformative = uninformativeParams),
-      shape = "ellipse") %>%
-  plot(quantities = T) %>%
-  print()
-dev.off()
 
 
 # plot marginal posterior distributions of the overlap
@@ -535,7 +534,7 @@ for (j in 2:ncol(stiff_info)) {
 }
 
 
-ggsave(filename = "results/Bayesian_ProteaSMM/PLOTS/LOV/0622_STIFF+INFORMATIVE_PCPposteriors.pdf", 
+ggsave(filename = "results/Bayesian_ProteaSMM/PLOTS/LOV/0623_STIFF+INFORMATIVE_PSPposteriors.pdf", 
        plot = gridExtra::marrangeGrob(StiffInfoParam, nrow=5, ncol=5, byrow = T), 
        width = 20, height = 20, dpi = "retina")
 
@@ -558,85 +557,17 @@ for (j in 2:ncol(sloppy_uninfo)) {
 }
 
 
-ggsave(filename = "results/Bayesian_ProteaSMM/PLOTS/LOV/0622_SLOPPY+UNINFORMATIVE_PCPposteriors.pdf", 
+ggsave(filename = "results/Bayesian_ProteaSMM/PLOTS/LOV/0623_SLOPPY+UNINFORMATIVE_PSPposteriors.pdf", 
        plot = gridExtra::marrangeGrob(SloppyUninfoParam, nrow=5, ncol=5, byrow = T), 
        width = 20, height = 20, dpi = "retina")
 
 
+### OUTPUT ###
+params = stiffAndInformative
+save(params, file = "data/ProteaSMM/PSP_SR1extfeat_P1/stiff_informative_params.RData")
+params = sloppyAndUnInformative
+save(params, file = "data/ProteaSMM/PSP_SR1extfeat_P1/sloppy_uninformative_params.RData")
 
-
-
-
-
-
-# ----- crap from here ------
-
-# ----- analyse which parameters have a good agreement -----
-paramNames = colnames(X)
-
-distances = list()
-pb = txtProgressBar(min = 0, max = length(paramNames), style = 3)
-for (j in 1:length(paramNames)) {
-  setTxtProgressBar(pb, j)
-  
-  cntParam = paramNames[j]
-  dist = matrix(NA, length(CHAINS), length(CHAINS))
-  for (i in 1:length(CHAINS)) {
-    for (ii in i:length(CHAINS)) {
-      
-      # dist[i,ii] = wasserstein1d(CHAINS[[i]][,cntParam], CHAINS[[ii]][,cntParam])
-      dist[i,ii] = t.test(CHAINS[[i]][,cntParam], CHAINS[[ii]][,cntParam])$p.value
-    }
-  }
-  
-  distances[[j]] = dist[upper.tri(dist)]
-  
-}
-
-names(distances) = paramNames
-
-mus = sapply(distances, quantile, 0.99)
-barplot(mus)
-
-barplot(mus[mus>0.2])
-
-
-save(distances, file = "results/Bayesian_ProteaSMM/PLOTS/LOV/SR1_distances.RData")
-
-# ----- model averaging and prediction on MM136 -----
-# very similar performance across folds --> do not weigh posteriors
-# instead merge them
-
-Posterior = CHAINSdf[CHAINSdf$.id != "Bayesian_ProteaSMM/server/LOV//PCPpoly_LOV1/posterior.RData",colnames(X)]
-keep = which(subIDs == overallLeftOut)
-
-tsims = apply(Posterior,1,function(p){
-  t = X[keep,]%*%log(p)
-  return(t)
-})
-
-tsims_mean = apply(tsims,1,mean,na.rm = T)
-tsims_sd = apply(tsims,1,sd,na.rm = T)
-
-ttrue_mean = apply(t[keep, ],1,mean,na.rm = T)
-ttrue_sd = apply(t[keep, ],1,sd,na.rm = T)
-
-pcc = cor(exp(ttrue_mean), exp(tsims_mean))
-
-png("results/Bayesian_ProteaSMM/PLOTS/LOV/MM136_220617.png", height = 6, width = 6, units = "in", res = 300)
-plot(x = ttrue_mean, y = tsims_mean,
-     pch = 16, xlab = "true", ylab = "predicted",
-     main = paste0(overallLeftOut,", PCC = ", round(pcc,4)))
-abline(a = 0, b = 1, col = "red")
-
-arrows(x0 = ttrue_mean+ttrue_sd,
-       x1 = ttrue_mean-ttrue_sd,
-       y0 = tsims_mean, y1 = tsims_mean,
-       code = 3, angle = 90, length = 0.03, lwd = .5)
-
-arrows(x0 = ttrue_mean, x1 = ttrue_mean,
-       y0 = tsims_mean+tsims_sd, y1 = tsims_mean-tsims_sd,
-       code = 3, angle = 90, length = 0.03, lwd = .5)
-dev.off()
+save(jointPosterior, file = "results/Bayesian_ProteaSMM/PLOTS/LOV/0623_PSPposteriors.RData")
 
 

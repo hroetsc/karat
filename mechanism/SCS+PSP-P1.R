@@ -11,6 +11,8 @@ library(seqinr)
 
 source("src/invitroSPI_utils.R")
 
+windowSize = 29
+
 # ---------- relevant info ----------
 # positions
 SR1pos = c("P6"=-5,"P5"=-4,"P4"=-3, "P3"=-2, "P2"=-1, "P1"=0,
@@ -123,7 +125,7 @@ resolve_multimapper = function(ProteasomeDB) {
 
 # ----- compute SCS-P1 and PSP-P1 -----
 
-SCS_and_PSP = function(DBMaster,target,meanOverBio=T,Zscale=F,rawVals=F,SR2forSCS=T) {
+SCS_and_PSP = function(DBMaster,target,meanOverBio=T,Zscale=F,rawVals=F,SR2forSCS=T,localStrength=F) {
   
   pcpidx = which(DBMaster$productType == "PCP")
   pspidx = which(DBMaster$productType == "PSP")
@@ -181,16 +183,44 @@ SCS_and_PSP = function(DBMaster,target,meanOverBio=T,Zscale=F,rawVals=F,SR2forSC
   psp = apply(str_split(d$psp_mean, pattern = "_", simplify = T), 2, as.numeric) %>%
     as.data.frame()
   
+  if (localStrength) {
+    
+    scsSums = matrix(0, nrow = nrow(scs), ncol = ncol(scs))
+    scsSums[ceiling(windowSize/2):(nrow(scs)-floor(windowSize/2)),] = sapply(ceiling(windowSize/2):(nrow(scs)-floor(windowSize/2)), function(i){
+      colSums(scs[(i-floor(windowSize/2)):(i+floor(windowSize/2)),], na.rm = T)
+      }) %>% t()
+    scsSums[1:floor(windowSize/2),1] = scsSums[ceiling(windowSize/2),1]
+    scsSums[1:floor(windowSize/2),2] = scsSums[ceiling(windowSize/2),2]
+    scsSums[(nrow(scs)-floor(windowSize/2)+1):nrow(scs),1] = scsSums[(nrow(scs)-floor(windowSize/2)),1]
+    scsSums[(nrow(scs)-floor(windowSize/2)+1):nrow(scs),2] = scsSums[(nrow(scs)-floor(windowSize/2)),2]
+    
+    
+    pspSums = matrix(0, nrow = nrow(psp), ncol = ncol(psp))
+    pspSums[ceiling(windowSize/2):(nrow(psp)-floor(windowSize/2)),] = sapply(ceiling(windowSize/2):(nrow(psp)-floor(windowSize/2)), function(i){
+      colSums(psp[(i-floor(windowSize/2)):(i+floor(windowSize/2)),], na.rm = T)
+    }) %>% t()
+    pspSums[1:floor(windowSize/2),1] = pspSums[ceiling(windowSize/2),1]
+    pspSums[1:floor(windowSize/2),2] = pspSums[ceiling(windowSize/2),2]
+    pspSums[(nrow(psp)-floor(windowSize/2)+1):nrow(psp),1] = pspSums[(nrow(psp)-floor(windowSize/2)),1]
+    pspSums[(nrow(psp)-floor(windowSize/2)+1):nrow(psp),2] = pspSums[(nrow(psp)-floor(windowSize/2)),2]
+    
+    
+    scs = scs/scsSums
+    psp = psp/pspSums
+    
+  }
+  
+  
   if (meanOverBio) {
-    if (!Zscale) {
+    if (!Zscale & !localStrength) {
       scs = sweep(scs, 2, colSums(scs,na.rm = T), FUN = "/")
       psp = sweep(psp, 2, colSums(psp,na.rm = T), FUN = "/")
-    } else if (rawVals) {
+    } else if (rawVals & !localStrength) {
       
       scs = scs
       psp = psp
       
-    } else {
+    } else if (!localStrength){
       scs = apply(scs,2,function(x){
         return((x - min(x)) / (max(x)-min(x)))
       })
@@ -206,15 +236,15 @@ SCS_and_PSP = function(DBMaster,target,meanOverBio=T,Zscale=F,rawVals=F,SR2forSC
     d$psp_sd = apply(psp,1,sd,na.rm=T) * 100
     
   } else {
-    if (!Zscale) {
+    if (!Zscale & !localStrength) {
       scs = sweep(scs, 2, colSums(scs,na.rm = T), FUN = "/") * 100
       psp = sweep(psp, 2, colSums(psp,na.rm = T), FUN = "/") * 100
-    } else if (rawVals) {
+    } else if (rawVals & !localStrength) {
       
       scs = scs
       psp = psp
       
-    } else {
+    } else if (!localStrength){
       scs = apply(scs,2,function(x){
         return(((x - min(x,na.rm = T)) / (max(x,na.rm = T)-min(x,na.rm = T)))*100)
       })
@@ -293,7 +323,7 @@ STS = function(DBMaster, meanOverBio=T) {
 
 # ----- iterate substrate sequences -----
 
-SCSandPSP_allSubs = function(DB, target,meanOverBio=T,Zscale=F,rawVals=F,SR2forSCS=T) {
+SCSandPSP_allSubs = function(DB, target,meanOverBio=T,Zscale=F,rawVals=F,SR2forSCS=T,localStrength=F) {
   
   subs = DB$substrateID %>% unique()
   
@@ -311,7 +341,7 @@ SCSandPSP_allSubs = function(DB, target,meanOverBio=T,Zscale=F,rawVals=F,SR2forS
   
   print("calculating SCS and PSP-P1")
   out = lapply(subs, function(x){
-    SCS_and_PSP(DBMaster[DBMaster$substrateID == x, ], target,meanOverBio,Zscale,rawVals,SR2forSCS)
+    SCS_and_PSP(DBMaster[DBMaster$substrateID == x, ], target,meanOverBio,Zscale,rawVals,SR2forSCS,localStrength)
   })
   
   names(out) = subs
