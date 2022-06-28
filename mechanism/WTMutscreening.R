@@ -37,24 +37,8 @@ Qual = WTMut %>%
   
 Qual$spliceType[is.na(Qual$spliceType)] = "PCP"
 
-# get splice-reactants
-extractSRs = function(DB) {
-  
-  pos = str_split_fixed(DB$positions, "_", Inf)[,c(1:4)]
-  pos = apply(pos,2,as.numeric)
-  
-  DB$sr1 = substr(DB$substrateSeq, pos[,1], pos[,2])
-  DB$sr2 = substr(DB$substrateSeq, pos[,3], pos[,4])
-  
-  DB$posP1 = pos[,2]
-  DB$posP1_ = pos[,3]
-  DB$posP1_[DB$spliceType == "PCP"] = pos[DB$spliceType == "PCP",2]+1
-  return(DB)
-}
 
-# get amino acids
-DB = extractSRs(Qual)
-DB = left_join(DB, extract_aminoacids(DB, onlyValidSeq = T))
+DB = left_join(Qual, extract_aminoacids(Qual, onlyValidSeq = F, coordinates = T))
 
 
 # ----- extract mutation position -----
@@ -65,7 +49,6 @@ DB$origSubs %>% unique()
 MutPos = DB %>%
   group_by(origSubs, protein_name, substrateSeq) %>%
   summarise() %>% ungroup() %>%
-  # filter(origSubs != "KRAS") %>%  # !!!
   mutate(WT = ifelse(grepl("WT", protein_name), T, F)) %>%
   as.data.frame()
 
@@ -94,17 +77,23 @@ MutPos[nrow(MutPos)+1,] = c("KRAS",
 DBj = left_join(DB, MutPos)
 
 X = DBj %>%
-  filter(posP1 == residue | posP1_ == residue) %>%
-  mutate(identical = ifelse(posP1 == residue, "P1", "P1_")) %>%
   group_by(origSubs, positions) %>%
   mutate(same = length(unique(WT))) %>%
   filter(same >= 2) %>%
-  select(substrateID, protein_name, origSubs, spliceType, pepSeq, positions, P1, P1_, identical) %>%
+  select(substrateID, protein_name, origSubs, spliceType, pepSeq, positions, residue, P8:P8_) %>%
   ungroup() %>%
   arrange(positions)
 
-table(X$identical)
-table(X$spliceType) /2
+# get which pairs have the mutation
+X$identical = NA
+for (i in 1:nrow(X)) {
+  X$identical[i] = SRnames[X[i,SRnames] == as.numeric(X$residue[i])] %>% paste(collapse = ";")
+}
+X = X[X$identical != "", ]
+
+# X = X %>%
+#   tidyr::separate_rows(identical, sep = ";")
+
 
 ### OUTPUT ###
 write.csv(as.data.frame(X), "results/WTMut/WT-Mut-pairs.csv", row.names = F)

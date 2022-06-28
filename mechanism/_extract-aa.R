@@ -12,20 +12,21 @@ library(dplyr)
 AA = c("A","D","E","F","G","H","K","L","N","P","Q","R","S","T","V","W","Y", "M", "C")
 AAchar = c("P","G","A","V","L","M","F","Y","W","H","R","K","D","E","N","Q","S","T","C")
 
-SR1pos = c("P4"=-3, "P3"=-2, "P2"=-1, "P1"=0,
-           "P-1"=1, "P-2"=2, "P-3"=3, "P-4"=4)
+SR1pos = c("P8"=-7,"P7"=-6,"P6"=-5,"P5"=-4,"P4"=-3, "P3"=-2, "P2"=-1, "P1"=0,
+           "P-1"=1, "P-2"=2, "P-3"=3, "P-4"=4, "P-5"=5, "P-6"=6, "P-7"=7, "P-8"=8)
 
-SR2pos = c("P-4_"=-4, "P-3_"=-3, "P-2_"=-2, "P-1_"=-1,
-           "P1_"=0, "P2_"=1, "P3_"=2, "P4_"=3)
+SR2pos = c("P-8_"=-8,"P-7_"=-7,"P-6_"=-6,"P-5_"=-5,"P-4_"=-4, "P-3_"=-3, "P-2_"=-2, "P-1_"=-1,
+           "P1_"=0, "P2_"=1, "P3_"=2, "P4_"=3, "P5_"=4, "P6_"=5, "P7_"=6, "P8_"=7)
 
-PCPpos = c("P4"=-3, "P3"=-2, "P2"=-1, "P1"=0,
-           "P1_"=1, "P2_"=2, "P3_"=3, "P4_"=4)
+PCPpos = c("P8"=-7,"P7"=-6,"P6"=-5,"P5"=-4,"P4"=-3, "P3"=-2, "P2"=-1, "P1"=0,
+           "P-1"=1, "P-2"=2, "P-3"=3, "P-4"=4, "P-5"=5, "P-6"=6, "P-7"=7, "P-8"=8)
 
 SRnames = c(names(SR1pos), names(SR2pos))
 types = c("cis", "revCis", "trans", "PCP")
 
+
 # ----- extract amino acids -----
-extract_aminoacids = function(tbl, onlyValidSeq = F){
+extract_aminoacids = function(tbl, onlyValidSeq = F, coordinates = F){
   
   tbl$spliceType[(tbl$spliceType == "") | (is.na(tbl$spliceType))] = "PCP"
   
@@ -41,6 +42,8 @@ extract_aminoacids = function(tbl, onlyValidSeq = F){
   pcpTBL = sapply(PCPpos, function(x){
     if (onlyValidSeq) {
       substr(tbl$pepSeq[pcp], start = pos[pcp,2]-pos[pcp,1]+1+x, stop = pos[pcp,2]-pos[pcp,1]+1+x) 
+    } else if (coordinates) {
+      pos[pcp,2]+x
     } else {
       substr(tbl$substrateSeq[pcp], start = pos[pcp,2]+x, stop = pos[pcp,2]+x)
     }
@@ -57,6 +60,8 @@ extract_aminoacids = function(tbl, onlyValidSeq = F){
   pspSR1TBL = sapply(SR1pos, function(x){
     if (onlyValidSeq & "sr1" %in% names(tbl)) {
       substr(tbl$sr1[psp], start = pos[psp,2]-pos[psp,1]+1+x, stop = pos[psp,2]-pos[psp,1]+1+x)
+    } else if (coordinates) {
+      pos[psp,2]+x
     } else {
       substr(tbl$substrateSeq[psp], start = pos[psp,2]+x, stop = pos[psp,2]+x)
     }
@@ -72,6 +77,8 @@ extract_aminoacids = function(tbl, onlyValidSeq = F){
   pspSR2TBL = sapply(SR2pos, function(x){
     if (onlyValidSeq & "sr2" %in% names(tbl)) {
       substr(tbl$sr2[psp], start = x+1, stop = x+1)
+    } else if (coordinates) {
+      pos[psp,3]+x
     } else {
       substr(tbl$substrateSeq[psp], start = pos[psp,3]+x, stop = pos[psp,3]+x)
     }

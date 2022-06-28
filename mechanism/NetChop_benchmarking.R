@@ -8,10 +8,12 @@
 library(dplyr)
 library(stringr)
 library(seqinr)
+library(RColorBrewer)
 source("src/invitroSPI_utils.R")
 source("src/_ROC-curve.R")
 
 pseudo = 1e-05
+rbPal = colorRampPalette(c('blue','red'))
 
 ### INPUT ###
 load("../../proteinsPCPS/new/data/aSPIre.RData")
@@ -19,7 +21,7 @@ proteins = Kinetics
 load("data/aSPIre.RData")
 polypeps = Kinetics
 
-load("data/ProteaSMM/PCP_SR1extfeat_P1/DATA_proteinsOnly.RData")
+load("data/ProteaSMM/PCP_SR1extfeat_P1/DATA_allSubstrates.RData")
 # load("results/Bayesian_ProteaSMM/PLOTS/LOV/0622_PCPposteriors.RData")
 load("results/Bayesian_ProteaSMM/PLOTS/LOV/0622_PCPposteriors_stiff+informative.RData")
 load("data/ProteaSMM/PCP_SR1extfeat_P1/stiff_informative_params.RData")
@@ -77,6 +79,8 @@ X = X[, colnames(X) %in% params]
 
 jointPosterior = parameters[sample(nrow(parameters), 10e03), ]
 
+DATA$n[grepl("MM",DATA$substrateIDs)|grepl("TSN",DATA$substrateIDs)] %>% table()
+
 pdf("results/Bayesian_ProteaSMM/PREDICTION/NetChop-vs-BayesianProteaSMM/_proteins_correlations.pdf", height = 5, width = 10)
 par(mfrow = c(1,2))
 
@@ -89,23 +93,26 @@ for(i in 1:length(subIDs)) {
   cntNetChop = netchop$score[netchop$Ident == subIDs[i]]
   cntTrueNetChop = DATA$t[keep, ]
   
+  # keep = which(DATA$substrateIDs == subIDs[i] & DATA$n > 1)
   cntPred = apply(jointPosterior,1,function(p){
     tsim = X[keep,]%*%log(p)
     return(tsim)
   })
-  cntTrue = log(cntTrueNetChop/100+pseudo)
+  cntTrue = log(DATA$t[keep, ]/100+pseudo)
   
   # NetChop vs. true
   tmean = apply(cntTrueNetChop,1,mean,na.rm = T)
   tsd = apply(cntTrueNetChop,1,sd,na.rm = T)
   pcc = cor(tmean, cntNetChop)
   plot(x = tmean, y = cntNetChop, pch = 16,
+       col = rbPal(50)[as.numeric(cut(log(DATA$n[keep]+1),breaks = 50))],
        xlab = "SCS-P1 (%)", ylab = "NetChop score",
        main = paste0(subIDs[i], ", PCC = ", round(pcc, 4)),
        sub = "NetChop")
   arrows(x0 = tmean+tsd,
          x1 = tmean-tsd,
          y0 = cntNetChop, y1 = cntNetChop,
+         col = rbPal(50)[as.numeric(cut(log(DATA$n[keep]+1),breaks = 50))],
          code = 3, angle = 90, length = 0.03, lwd = .5) %>% suppressWarnings()
   
   NetChopROCs[[i]] = getROCcurve(ttrue_mean = zscale(tmean), tsims_mean = zscale(cntNetChop), substrate = subIDs[i], threshPerc = 0.5, retValsOnly = T)[1,c("pr_auc","roc_auc")]
@@ -118,15 +125,18 @@ for(i in 1:length(subIDs)) {
   
   pcc = cor(tmean, tpredmean)
   plot(x = tmean, y = tpredmean, pch = 16,
+       col = rbPal(50)[as.numeric(cut(log(DATA$n[keep]+1),breaks = 50))],
        xlab = "log-transformed SCS-P1 (%)", ylab = "Bayesian ProteaSMM prediction",
        main = paste0(subIDs[i], ", PCC = ", round(pcc, 4)),
        sub = "Bayesian ProteaSMM")
   arrows(x0 = tmean+tsd,
          x1 = tmean-tsd,
          y0 = tpredmean, y1 = tpredmean,
+         col = rbPal(50)[as.numeric(cut(log(DATA$n[keep]+1),breaks = 50))],
          code = 3, angle = 90, length = 0.03, lwd = .5) %>% suppressWarnings()
   arrows(x0 = tmean, x1 = tmean,
          y0 = tpredmean+tpredsd, y1 = tpredmean-tpredsd,
+         col = rbPal(50)[as.numeric(cut(log(DATA$n[keep]+1),breaks = 50))],
          code = 3, angle = 90, length = 0.03, lwd = .5) %>% suppressWarnings()
   
   ProteaSMMROCs[[i]] = getROCcurve(ttrue_mean = zscale(tmean), tsims_mean = zscale(tpredmean), substrate = subIDs[i], threshPerc = 0.5, retValsOnly = T)[1,c("pr_auc","roc_auc")]

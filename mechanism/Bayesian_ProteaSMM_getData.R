@@ -26,9 +26,9 @@ proteins = Kinetics
 ### MAIN PART ###
 # ----- preprocessing -----
 nm = intersect(names(polypeps), names(proteins))
-# rbind(polypeps[,nm] %>% mutate(dataset = "polypeps"),
-#       proteins[,nm] %>% mutate(dataset = "proteins"))
-Quant = proteins %>% mutate(dataset = "proteins") %>%  # !!!!!!!!
+
+Quant = rbind(polypeps[,nm] %>% mutate(dataset = "polypeps"),
+              proteins[,nm] %>% mutate(dataset = "proteins")) %>%  # !!!!!!!!
   # ILredundancy() %>%
   disentangleMultimappers.Type() %>%
   tidyr::separate_rows(digestTimes, intensities, sep=";") %>%
@@ -39,6 +39,7 @@ Quant = proteins %>% mutate(dataset = "proteins") %>%  # !!!!!!!!
   filter((dataset == "polypeps" & digestTime == 4) | (dataset == "proteins" & digestTime %in% c(3,4))) %>%
   resolve_multimapper() %>%
   tidyr::separate_rows(positions, sep = ";")
+
 
 # ----- get binary matrices for substrates -----
 # for only one SR
@@ -197,7 +198,7 @@ getData = function(target, SRpos, col, nCol, nm, features_from) {
   allCombos = do.call(paste, c(allCombos[c("interesting_residues","AAchar_here_sorted")], sep=";"))
   
   # get SCS and PSP for P1 or P1' for each bio rep
-  out = SCSandPSP_allSubs(Quant, target, meanOverBio = F, Zscale = F, SR2forSCS = T, localStrength = T)
+  out = SCSandPSP_allSubs(Quant, target, meanOverBio = F, Zscale = F, SR2forSCS = T, localStrength = F)
   yPredDF = plyr::ldply(out) %>%
     as.data.frame()
   yPredDF$target = target
@@ -209,7 +210,8 @@ getData = function(target, SRpos, col, nCol, nm, features_from) {
   #   filter(nnum > 0) %>%
   #   group_by(substrateID) %>%
   #   filter(nnum > quantile(nnum, .05)) %>% ungroup()
-  yPredDF_filter = yPredDF
+  yPredDF_filter = yPredDF %>%
+    rename(nnum = nCol)
   
   paste0(nrow(yPredDF_filter), " residues passed filtering") %>% print()
   
@@ -220,7 +222,7 @@ getData = function(target, SRpos, col, nCol, nm, features_from) {
   
   # merge with SCS and PSP-P1
   # add prediction target
-  ALL = left_join(substrateCounts, yPredDF_filter %>% dplyr::select(substrateID, residue, col)) %>%
+  ALL = left_join(substrateCounts, yPredDF_filter %>% dplyr::select(substrateID, residue, col, nnum)) %>%
     rename(y = col) %>%
     na.omit()
   
@@ -254,9 +256,10 @@ getData = function(target, SRpos, col, nCol, nm, features_from) {
   # merge and return
   DATA = list(X = X,
               t = t,
-              substrateIDs = ALL$substrateID)
+              substrateIDs = ALL$substrateID,
+              n = ALL$nnum)
   
-  save(DATA, file = paste0(fname, "DATA_proteinsOnly.RData"))
+  save(DATA, file = paste0(fname, "DATA_allSubstrates.RData"))
 }
 
 # ----- just 4 positions -----
