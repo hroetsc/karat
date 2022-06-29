@@ -54,7 +54,7 @@ getAllPos = function(subLen, prodLen, shortV=F) {
   print("forward cis")
   cis = lapply(prodLen, function(N){
     x = lapply(subLen, function(L){
-      data.frame(L=L, N=N, positions=getCis(L,N))
+      data.frame(L=L, N=N, number_all=numCis(L,N), number_1term = numCis_1term(L,N), number_bothterm = numCis_bothterm(L,N))
     })
     x = plyr::ldply(x)
     return(x)
@@ -65,7 +65,7 @@ getAllPos = function(subLen, prodLen, shortV=F) {
   print("reverse cis")
   revcis = lapply(prodLen, function(N){
     x = lapply(subLen, function(L){
-      data.frame(L=L, N=N, positions=getRevCis(L,N))
+      data.frame(L=L, N=N, number_all=numRevCis(L,N), number_1term = numRevCis_1term(L,N), number_bothterm = numRevCis_bothterm(L,N))
     })
     x = plyr::ldply(x)
     return(x)
@@ -81,8 +81,8 @@ getAllPos = function(subLen, prodLen, shortV=F) {
 theor_poly = getAllPos(subLen_poly, prodLen_poly)
 theor_prot = getAllPos(subLen_prots, prodLen_prots)
 
-save(theor_poly, file = "data/no-theor_polypeps.RData")
-save(theor_prot, file = "data/no-theor_prots.RData")
+# save(theor_poly, file = "data/no-theor_polypeps.RData")
+# save(theor_prot, file = "data/no-theor_prots.RData")
 
 
 # ----- extract peptides from actual data sets -----
@@ -105,64 +105,50 @@ extractPeps = function(df, obs=T) {
     CIS = cbind(df_filter, pos) %>%
       filter(spliceType == "cis") %>%
       na.omit() %>%
-      mutate(category = if_else(pos1 == 1 & pos4 < L, "cat1", NA),
-             category = if_else(pos1 > 1 & pos4 == L, "cat2", category),
-             category = if_else(pos1 == 1 & pos4 == L, "cat3", category),
-             category = if_else(pos1 > 1 & pos4 < L, "cat4", category))
+      mutate(category = ifelse(pos1 == 1 & pos4 < L, "cat1", NA),
+             category = ifelse(pos1 > 1 & pos4 == L, "cat2", category),
+             category = ifelse(pos1 == 1 & pos4 == L, "cat3", category),
+             category = ifelse(pos1 > 1 & pos4 < L, "cat4", category))
     
     REVCIS = cbind(df_filter, pos) %>%
       filter(spliceType == "revCis") %>%
       na.omit() %>%
-      mutate(category = if_else(pos3 == 1 & pos2 < L, "cat1", NA),
-             category = if_else(pos3 > 1 & pos2 == L, "cat2", category),
-             category = if_else(pos3 == 1 & pos2 == L, "cat3", category),
-             category = if_else(pos3 > 1 & pos2 < L, "cat4", category))
+      mutate(category = ifelse(pos3 == 1 & pos2 < L, "cat1", NA),
+             category = ifelse(pos3 > 1 & pos2 == L, "cat2", category),
+             category = ifelse(pos3 == 1 & pos2 == L, "cat3", category),
+             category = ifelse(pos3 > 1 & pos2 < L, "cat4", category))
+    
+    abund = rbind(CIS,REVCIS) %>%
+      group_by(L,spliceType,category) %>%
+      summarise(n = n()) %>%
+      tidyr::spread(category,n,fill = 0) %>%
+      tidyr::gather(category,n, -L, -spliceType) %>%
+      ungroup() %>% group_by(L,spliceType) %>%
+      mutate(freq = n/sum(n))
     
   } else {
     
-    cis_pos = str_split_fixed(df$cis$positions,coll("_"),Inf)[,c(1:4)]
-    cis_pos = apply(cis_pos,2,as.numeric) %>% as.data.frame()
-    names(cis_pos) = c("pos1","pos2","pos3","pos4")
+    ALL = plyr::ldply(df)
     
-    print("managed cis positions")
+    abund = ALL %>%
+      mutate(number_noterm = number_all-number_1term-number_bothterm) %>%
+      rename(cat1 = number_1term,
+             cat3 = number_bothterm,
+             cat4 = number_noterm) %>%
+      mutate(cat2 = cat1) %>%
+      select(-number_all) %>%
+      tidyr::gather("category","n",cat1,cat2,cat3,cat4, -L, -N, -spliceType) %>%
+      select(-.id) %>%
+      mutate(category = as.character(category)) %>%
+      group_by(L,spliceType,category) %>%
+      summarise(n = sum(n)) %>%
+      tidyr::spread(category,n, fill = 0) %>%
+      tidyr::gather(category,n, -L, -spliceType) %>%
+      ungroup() %>% group_by(L,spliceType) %>%
+      mutate(freq = n/sum(n))
     
-    revcis_pos = str_split_fixed(df$revCis$positions,coll("_"),Inf)[,c(1:4)]
-    revcis_pos = apply(revcis_pos,2,as.numeric) %>% as.data.frame()
-    names(revcis_pos) = c("pos1","pos2","pos3","pos4")
     
-    print("managed rev cis positions")
-    
-    CIS = cbind(df$cis, cis_pos) %>%
-      na.omit() %>%
-      filter(pos1 >= 1 & pos4 <= L) %>%  # old implementation of all possible function
-      mutate(category = if_else(pos1 == 1 & pos4 < L, "cat1", NA),
-             category = if_else(pos1 > 1 & pos4 == L, "cat2", category),
-             category = if_else(pos1 == 1 & pos4 == L, "cat3", category),
-             category = if_else(pos1 > 1 & pos4 < L, "cat4", category))
-    
-    print("managed to get cis df")
-    
-    REVCIS = cbind(df$revCis, revcis_pos) %>%
-      na.omit() %>%
-      filter(pos3 >= 1 & pos2 <= L) %>%  # old implementation of all possible function
-      mutate(category = if_else(pos3 == 1 & pos2 < L, "cat1", NA),
-             category = if_else(pos3 > 1 & pos2 == L, "cat2", category),
-             category = if_else(pos3 == 1 & pos2 == L, "cat3", category),
-             category = if_else(pos3 > 1 & pos2 < L, "cat4", category))
-    
-    print("managed to get rev cis df")
   }
-  
-  
-  abund = rbind(CIS,REVCIS) %>%
-    group_by(L,spliceType,category) %>%
-    summarise(n = n()) %>%
-    tidyr::spread(category,n,fill = 0) %>%
-    tidyr::gather(category,n, -L, -spliceType) %>%
-    ungroup() %>% group_by(L,spliceType) %>%
-    mutate(freq = n/sum(n))
-  
-  print("managed to summarise")
   
   return(abund)
 }
@@ -183,16 +169,17 @@ ALL_poly = rbind(obs_poly_freq,theor_poly_freq)
 plot_poly = ALL_poly %>%
   ggplot(aes(x=category,y=freq,fill=dataset)) +
   geom_boxplot() +
+  ylim(0,1) +
   # geom_text(aes(label = L, col=dataset), position=position_jitter(width = .3), size = 2) +
   scale_color_manual("", values = c("black","black")) +
   scale_fill_manual("data set", values = c("palegreen","steelblue")) +
   scale_x_discrete(labels = c("N term", "C term", "N+C term", "no termini")) +
   ylab("frequency") +
   theme(axis.text.x = element_text(angle = 90)) +
-  facet_wrap(~spliceType)
+  facet_wrap(~spliceType, scales = "free")
 
 ggsave(filename = "results/NandCterm_polypeps.png", plot = plot_poly,
-       height = 6, width = 12, dpi = "retina")
+       height = 10, width = 16, units = "cm", dpi = "retina")
 
 
 # proteins
@@ -201,6 +188,7 @@ theor_prot_freq$dataset = "theoretically"
 ALL_prot = rbind(obs_prot_freq,theor_prot_freq)
 
 plot_prot = ALL_prot %>%
+  filter(category != "cat4") %>%
   ggplot(aes(x=category,y=freq,fill=dataset)) +
   geom_boxplot() +
   # geom_text(aes(label = L, col=dataset), position=position_jitter(width = .3), size = 2) +

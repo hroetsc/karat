@@ -71,8 +71,17 @@ numCis_bothterm = function(L, N, Lext=1){
 # number of sequences with restricted intervening sequence length
 # Imax: maximum intervening sequence length
 numCis_maxInterv = function(L, N, Imax, Lext=1){
-  if (L-1 >= N) {
+  # if (L-1 >= N & Imax >= N) {
+  if (L-1 >= N & Imax < 2*L-2*N+3) {
     return(-0.5*(-2+Imax)*(1-2*Lext+N)*(-3+Imax-2*L+2*N))
+  } else {
+    return(0)
+  }
+}
+
+numCis_fixedSR = function(L,N,Lext=1){
+  if (L-1 >= N) {
+    return(0.5*(L-N)*(L-N+1))
   } else {
     return(0)
   }
@@ -148,8 +157,16 @@ numRevCis_bothterm = function(L, N, Lext=1){
 # number of sequences with restricted intervening sequence length
 # Imax: maximum intervening sequence length
 numRevCis_maxInterv = function(L, N, Imax, Lext=1){
-  if (L-1 >= N & Imax >= N) {
+  if (L >= N & Imax >= N) {
     return((1+Imax-N)*(1-0.5*Imax+L-0.5*N)*(1-2*Lext+N))
+  } else {
+    return(0)
+  }
+}
+
+numRevCis_fixedSR = function(L,N,Lext=1){
+  if (L >= N) {
+    return(0.5*(L-N+1)*(L-N+2))
   } else {
     return(0)
   }
@@ -246,6 +263,21 @@ numTrans_bothterm = function(L,N,Lext=1) {
   }
 }
 
+numTrans_fixedSR = function(L,N,sr1,Lext=1){
+  minN = if (N%%2 == 0) N/2 else (N+1)/2
+  if (L >= minN) {
+    x = -1-N^2+L*(-1+N)-sr1^2+N*(2+sr1)
+    if (x > 0) {
+      return(x)
+    } else {
+      return(0)
+    }
+  } else {
+    return(0)
+  }
+}
+
+
 # number of splice sites
 numTrans_sites = function(L,N,Lext=1) {
   
@@ -258,7 +290,7 @@ numTrans_sites = function(L,N,Lext=1) {
 }
 
 
-# ----- trans-spliced from two different proteins -----
+# ----- trans from two different proteins -----
 # L1: length of protein 1
 # L2: length of protein 2
 getTransProt = function(L1, L2, N, Lext=1) {

@@ -99,12 +99,12 @@ IVLength = function(df, nm) {
     iv = rep(NA, nrow(db))
     
     cistrans.idx = which(db$spliceType %in% c("cis", "trans"))
-    iv[cistrans.idx] = (abs(as.numeric(pos[cistrans.idx, 3]) - as.numeric(pos[cistrans.idx, 2])) - 1) %>%
+    revcis.idx = which(db$spliceType == "revCis")
+    iv[c(cistrans.idx, revcis.idx)] = (abs(as.numeric(pos[c(cistrans.idx, revcis.idx), 3]) - as.numeric(pos[c(cistrans.idx, revcis.idx), 2])) - 1) %>%
       as.numeric()
     
-    revcis.idx = which(db$spliceType == "revCis")
-    iv[revcis.idx] = (abs(as.numeric(pos[revcis.idx, 1]) - as.numeric(pos[revcis.idx, 4])) - 1) %>%
-      as.numeric()
+    # iv[revcis.idx] = (abs(as.numeric(pos[revcis.idx, 1]) - as.numeric(pos[revcis.idx, 4])) - 1) %>%
+    #   as.numeric()
     
     ivl = data.frame(value = iv,
                      type = db$spliceType,
@@ -116,7 +116,8 @@ IVLength = function(df, nm) {
   
   iv = ivlen(df)
   iv = iv %>% 
-    mutate(rel = value/nchar(substrateSeq),
+    mutate(#rel = value/nchar(substrateSeq),
+           rel = value,
            placeholder = "x")
   
   # plotting
