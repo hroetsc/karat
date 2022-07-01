@@ -113,8 +113,6 @@ DEanalysis = function(origSubs) {
       ggplot(aes(y=-log10(padj), x=estimate)) + 
       geom_point(stat="identity", position="identity", alpha=0.5, size=1) + 
       theme_bw() + 
-      # scale_color_manual("type", values = c(plottingCols[["cis"]], plottingCols[["revCis"]],
-      #                                       plottingCols[["trans"]], plottingCols[["PCP"]], "gray")) +
       theme(text=element_text(family="sans", face="plain", color="#000000", size=12, hjust=0.5, vjust=0.5)) + 
       xlab("log2 fold change") + 
       ylab("-log10 p.adj") +
@@ -130,9 +128,12 @@ DEanalysis = function(origSubs) {
     signif = res[kk,] %>%
       rename(pepPos = gene)
     
-    # ZZ = left_join(signif, Y)
-    ZZ = signif %>%
-      mutate(origSubs = origSubs)
+    ZZ = left_join(signif,
+                   Y %>% select(pepPos, identical, pepSeq, spliceType, positions,protein_name)) %>%
+      mutate(origSubs = origSubs,
+             group1 = gr1Name,
+             group2 = gr2Name) %>%
+      unique()
     write.csv(ZZ, file = paste0("results/WTMut/DEanalysis/SIGNIF_",origSubs,"_",gr1Name,"-vs-",gr2Name,".csv"), row.names = F)
     
     # export plots

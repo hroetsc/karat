@@ -97,6 +97,17 @@ for (o in origSubs) {
   I0[I0==0] = NA
   I4[I4==0] = NA
   
+  # background correction with 5% quantile
+  cnames = str_split_fixed(str_split_fixed(colnames(I0), "-", Inf)[,1], "_", Inf)[,2]
+  q = sapply(unique(cnames), function(c){
+    quantile(rbind(I0[,cnames == c], I4[,cnames == c]), 0.05, na.rm = T, names = F)
+  })
+  
+  for(c in unique(cnames)) {
+    I0[,cnames == c] = I0[,cnames == c]/q[c]
+    I4[,cnames == c] = I4[,cnames == c]/q[c]
+  }
+  
   # impute missing values
   I0[!is.finite(I0)] = 0
   I0 = apply(I0, 2, function(x){
@@ -109,14 +120,15 @@ for (o in origSubs) {
   })
   
   # fold change + log-transformation
+  # FC = I4-I0
   FC = I4/I0 - 1
+  
   FC = FC - min(FC, na.rm = T)
-  FC = log(FC+1)
+  FC = log10(FC+1)
   print(dim(FC))
   
   density(FC) %>% plot(main = o, sub = "distribution of log fold-changes")
   save(FC, file = paste0("results/WTMut/fold-changes/",o,".RData"))
-  
   
 }
 dev.off()

@@ -442,7 +442,7 @@ jointPosteriorDF = jointPosteriorDF %>%
   mutate(infoclass = ifelse(key %in% informativeParams, "informative", "none"),
          infoclass = ifelse(key %in% uninformativeParams, "uninformative", infoclass))
 
-
+save(DeltaH, file = "results/Bayesian_ProteaSMM/PLOTS/LOV/0622_PCP_DeltaH.RData")
 
 # ----- plot parameter distributions -----
 jointPosteriorDF$class = factor(jointPosteriorDF$class, levels = c("stiff", "sloppy", "none"))
