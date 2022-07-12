@@ -60,6 +60,15 @@ Y = Y %>%
 Y = Y %>%
   filter(numberPeps > 1)
 
+# normalise kinetics
+Y = Y %>%
+  group_by(substrateID, pepSeq, biological_replicate, technical_replicate) %>%
+  mutate(intensity = as.numeric(intensity)) %>%
+  mutate(intensity = intensity-min(intensity)) %>%
+  ungroup()
+Y$intensity[Y$digestTime == 0] = 0
+
+
 # ----- get fold changes -----
 
 origSubs = Y$origSubs %>% unique()
@@ -71,7 +80,7 @@ for (o in origSubs) {
   print(o)
   
   I0 = Y %>%
-    filter(origSubs == o & digestTime == 0) %>%
+    filter(origSubs == o & digestTime == 1) %>%
     select(pepPos, condition, intensity) %>%
     tidyr::spread(condition, -pepPos) %>%
     tibble::column_to_rownames("pepPos") %>%
@@ -85,13 +94,13 @@ for (o in origSubs) {
     as.matrix()
   
   # filter out peptides that have a lower intensity at 4 than at 0 hours
-  rem = sapply(1:nrow(I0), function(i){
-    any(I0[i,] < I4[i,])
-  }) %>% which()
-  print(length(rem) / nrow(I4))
-  
-  I0 = I0[rem,]
-  I4 = I4[rem,]
+  # rem = sapply(1:nrow(I0), function(i){
+  #   any(I0[i,] < I4[i,])
+  # }) %>% which()
+  # print(length(rem) / nrow(I4))
+  # 
+  # I0 = I0[rem,]
+  # I4 = I4[rem,]
   
   # set 0 intensities to NA
   I0[I0==0] = NA
@@ -102,7 +111,7 @@ for (o in origSubs) {
   q = sapply(unique(cnames), function(c){
     quantile(rbind(I0[,cnames == c], I4[,cnames == c]), 0.05, na.rm = T, names = F)
   })
-  
+
   for(c in unique(cnames)) {
     I0[,cnames == c] = I0[,cnames == c]/q[c]
     I4[,cnames == c] = I4[,cnames == c]/q[c]
@@ -120,12 +129,16 @@ for (o in origSubs) {
   })
   
   # fold change + log-transformation
-  # FC = I4-I0
-  FC = I4/I0 - 1
+  FC = (log10(I4)-log10(I0))
+  D4 = log10(I4)
+
+  D4norm = apply(D4,2,function(x){
+    return((x - min(x))/(max(x)-min(x)))
+  })
+  # density(D4norm) %>% plot(main = o, sub = "distribution of log fold-changes")
   
-  FC = FC - min(FC, na.rm = T)
-  FC = log10(FC+1)
-  print(dim(FC))
+  # tmp!
+  # FC = D4norm
   
   density(FC) %>% plot(main = o, sub = "distribution of log fold-changes")
   save(FC, file = paste0("results/WTMut/fold-changes/",o,".RData"))

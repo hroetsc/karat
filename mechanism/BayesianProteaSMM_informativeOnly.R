@@ -18,6 +18,7 @@ load("data/ProteaSMM/PSP_SR1extfeat_P1/stiff_informative_params.RData")
 ### MAIN PART ###
 X = DATA$X
 t = log(DATA$t/100+pseudo)
+# t = DATA$t
 
 X = X[, colnames(X) %in% params]
 
@@ -35,6 +36,8 @@ tsims = apply(parameters,1,function(p){
   tsim = X[keep,]%*%log(p)
   return(tsim)
 })
+
+# tsims = (exp(tsims) - pseudo)*100
 
 tsims_mean = apply(tsims,1,mean,na.rm = T)
 tsims_sd = apply(tsims,1,sd,na.rm = T)

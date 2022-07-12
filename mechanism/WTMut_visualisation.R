@@ -13,7 +13,8 @@ library(lattice)
 source("src/_extract-aa.R")
 source("src/invitroSPI_utils.R")
 
-rf <- colorRampPalette(rev(brewer.pal(11,'Spectral')))
+# rf <- colorRampPalette(rev(brewer.pal(11,'Spectral')))
+rf <- colorRampPalette(rev(brewer.pal(11,'RdBu')))
 rcol <- rf(100)
 
 AAchar_here = c("P","G","C","M","A","V","I","L","F","Y","W","H","R","K","D","E","N","Q","S","T","X")
@@ -90,6 +91,9 @@ for (o in origSubs) {
 
   Lg = L %>% 
     tibble::rownames_to_column("pepPos")
+  if (nrow(Lg) == 0) {
+    next
+  }
   Lg = Lg %>% tidyr::gather(key, value, -pepPos)
   Lg$protein_name = str_split_fixed(Lg$key, "-", Inf)[,1]
   Lg$key = str_split_fixed(str_split_fixed(Lg$key, "-", Inf)[,1], "_", Inf)[,2]
@@ -303,6 +307,7 @@ protNames$origSubs = str_split_fixed(protNames$protein_name,"_",Inf)[,1]
 protNames$group = str_split_fixed(protNames$protein_name,"_",Inf)[,2]
 
 SIGNIF = lapply(fs, function(x){
+  print(basename(x))
   S = read.csv(x, stringsAsFactors = F) %>%
     select(origSubs, pepPos, spliceType, group1, group2,estimate, identical) %>%
     tidyr::separate_rows(identical, sep = ";") %>%
@@ -310,11 +315,14 @@ SIGNIF = lapply(fs, function(x){
     # group_by(origSubs, group1, group2, identical) %>%
     # summarise(mean_fc = mean(estimate))
   
-  S$aa1 = protNames$aa[protNames$origSubs == S$origSubs[1] & protNames$group == S$group1[1]]
-  S$aa2 = protNames$aa[protNames$origSubs == S$origSubs[1] & protNames$group == S$group2[1]]
-  S$swap = paste0(S$aa1, "->", S$aa2)
+  if (nrow(S) > 0) {
+    S$aa1 = protNames$aa[protNames$origSubs == S$origSubs[1] & protNames$group == S$group1[1]]
+    S$aa2 = protNames$aa[protNames$origSubs == S$origSubs[1] & protNames$group == S$group2[1]]
+    S$swap = paste0(S$aa2, "->", S$aa1)
+    
+    return(S)
+  }
   
-  return(S)
 })
 
 SIGNIF = plyr::ldply(SIGNIF)
@@ -324,10 +332,11 @@ SIGNIF$swap %>% unique() %>% sort()
 # SIGNIF$estimate[SIGNIF$swap == "R->G"] = -1*(SIGNIF$estimate[SIGNIF$swap == "R->G"]/(SIGNIF$estimate[SIGNIF$swap == "R->G"]+1))
 # SIGNIF$swap[SIGNIF$swap == "R->G"] = "G->R"
 
-SIGNIF = SIGNIF[-which(SIGNIF$swap %in% c("D->D", "R->D")), ]
+SIGNIF = SIGNIF[-which(SIGNIF$swap %in% c("D->D", "D->R")), ]
 lim = c(min(SIGNIF$estimate), max(SIGNIF$estimate))
 
-swaps = c("L->W","F->V","E->V","D->R","D->G","R->G","R->Q","K->Q","K->R","H->R")
+# swaps = c("L->W","F->V","E->V","D->R","D->G","R->G","R->Q","K->Q","K->R","H->R")
+swaps = c("W->L","V->F","V->E","R->D","G->D","G->R","Q->R","Q->K","R->K","R->H")
 
 getHeatmap = function(prodType, interesting_residues) {
   
@@ -336,7 +345,7 @@ getHeatmap = function(prodType, interesting_residues) {
     mutate(productType = ifelse(spliceType == "PCP", "PCP", "PSP")) %>%
     filter(productType == prodType) %>%
     group_by(swap, identical) %>%
-    summarise(mean_fc = mean(estimate),
+    summarise(mean_fc = median(estimate),
               numPairs = n())
   N = DFt
   DFt = DFt %>%
@@ -367,6 +376,9 @@ getHeatmap = function(prodType, interesting_residues) {
   DFt = as.matrix(DFt[rev(swaps),interesting_residues])
   N = as.matrix(N[rev(swaps),interesting_residues])
   
+  colnames(DFt) = str_replace_all(colnames(DFt), coll("_"), coll("'"))
+  
+  
   levelplot(DFt %>% t(), axes = F, col.regions = rcol,
             at = seq(lim[1], lim[2], length.out = 100),
             pretty = T, labels = T,
@@ -386,24 +398,46 @@ getHeatmap = function(prodType, interesting_residues) {
   grid::grid.newpage()
   N[swaps, ] %>% gridExtra::grid.table()
   
-  
+  return(DFt)
 }
 
-pdf("results/WTMut/PAIRS/HEATMAP.pdf", height = 6, width = 15)
-getHeatmap("PCP", interesting_residues = names(PCPpos))
-getHeatmap("PSP", interesting_residues = SRnames)
+pdf("results/WTMut/PAIRS/HEATMAP2.pdf", height = 6, width = 15)
+DFtpcp = getHeatmap("PCP", interesting_residues = names(PCPpos))
+DFtpsp = getHeatmap("PSP", interesting_residues = SRnames)
 dev.off()
 
 # TO-DO: nice plots for thesis
+png("results/WTMut/PAIRS/_forThesis_heatmapPSP.png", height = 5, width = 15, units = "in", res = 600)
+levelplot(DFtpsp %>% t(), axes = F, col.regions = rcol,
+          at = seq(lim[1], lim[2], length.out = 100),
+          panel = function(...) {
+            panel.levelplot(...)
+            panel.abline(v=8.5, lty = "dashed")
+            panel.abline(v=16.5, lty = "dashed")
+            panel.abline(v=24.5, lty = "dashed")
+          },
+          pretty = T, labels = T) %>% print()
+dev.off()
+
+png("results/WTMut/PAIRS/_forThesis_heatmapPCP.png", height = 5, width = 7.5, units = "in", res = 600)
+levelplot(DFtpcp %>% t(), axes = F, col.regions = rcol,
+          at = seq(lim[1], lim[2], length.out = 100),
+          panel = function(...) {
+            panel.levelplot(...)
+            panel.abline(v=8.5, lty = "dashed")
+          },
+          pretty = T, labels = T) %>% print()
+dev.off()
+
 
 # ----- plot selected kinetics -----
 # pick an example for thesis
 krasPSP = SIGNIF[SIGNIF$swap %in% c("H->R","K->R") & SIGNIF$identical == "P1", ]
 krasPSP = Y[Y$pepPos %in% c("IDH1-13_14_3_8","IDH1-13_14_4_8"), ]
 
-krasPCP = SIGNIF[SIGNIF$swap %in% c("R->G","D->G") & SIGNIF$identical %in% c("P2","P3"), ]
-krasPCP = Y[Y$pepPos %in% c("KRAS-1_13", "KRAS-4_13"), ]
-krasPCP = krasPCP[(krasPCP$positions == "1_13" & krasPCP$protein_name %in% c("KRAS_WT","KRAS_G12R")) | krasPCP$positions == "4_13" & krasPCP$protein_name %in% c("KRAS_WT","KRAS_G12D"), ]
+krasPCP = SIGNIF[SIGNIF$identical == "P1" & SIGNIF$spliceType == "PCP", ]
+krasPCP = Y[Y$pepPos %in% krasPCP$pepPos, ]
+krasPCP = krasPCP[krasPCP$protein_name %in% c("KRAS_WT","KRAS_G12R","KRAS_G12D") & krasPCP$positions == "1_11", ]
 
 # screening
 pdf("results/WTMut/PAIRS/example_plots.pdf", height = 5, width = 5)
@@ -466,7 +500,10 @@ for (i in 1:length(pos)) {
     arrange(digestTime) %>%
     suppressMessages ()
   
-  Cols = c("darkorange","tomato")
+  tmp$mean_int[tmp$digestTime == 0] = 0
+  
+  
+  Cols = c("darkorange","firebrick","goldenrod2")
   # Cols = c("royalblue","skyblue")
   nCol = length(unique(tmp$protein_name))
   # Cols = colorRampPalette(rev(brewer.pal(9,'Blues')))(nCol)
@@ -496,7 +533,7 @@ for (i in 1:length(pos)) {
   # ----- add legend -----
   legend(x = "topleft", legend = c(unique(tmp$protein_name)), 
          col = Cols,
-         pch = 19, cex = 1.2, bty = "n", lty = "solid")
+         pch = 19, cex = .9, bty = "n", lty = "solid")
   
   dev.off()
 }

@@ -171,7 +171,7 @@ getPlots = function(DB, target, suffix, limited = F) {
       ggtitle(names(dat)[j], subtitle = paste0(paste(cnt$aa %>% unique() %>% sort(), collapse = ", "), " - n=", nrow(cnt), ", p = ", pval)) +
       xlim(0,lim) + ylim(0,lim)
     
-    allP[[counter]] = ggExtra::ggMarginal(p, type = "density", size = 8)
+    allP[[counter]] = ggExtra::ggMarginal(p, type = "density", size = 8, col = "gray")
     counter = counter+1
   }
   
@@ -213,6 +213,7 @@ Pm1 = getPlots(DB = ALL, target = "P-1", suffix = "_trueLim", limited = T)
 
 
 # ----- plots for thesis -----
+lim = 100
 pval = ad_test(P1$data$scs_mean, P1$data$psp_mean)[2]
 
 p = ggplot(P1$data, aes(x = scs_mean, y = psp_mean)) +
@@ -221,7 +222,7 @@ p = ggplot(P1$data, aes(x = scs_mean, y = psp_mean)) +
   ylab("splicing strength (%)") +
   ggtitle("", subtitle = paste0("all residues, n=", nrow(P1$data), ", p = ", pval)) +
   xlim(0,lim) + ylim(0,lim)
-p = ggExtra::ggMarginal(p, type = "density", size = 8)
+p = ggExtra::ggMarginal(p, type = "density", size = 8, col = "gray")
 p
 
 ggsave(filename = "results/SCS+PSP/_forthesis_P1.png", plot = p, height = 3.5, width = 3.5, dpi = "retina")
@@ -235,7 +236,7 @@ p = ggplot(Pm1$data, aes(x = scs_mean, y = psp_mean)) +
   ylab("splicing strength (%)") +
   ggtitle("", subtitle = paste0("all residues, n=", nrow(Pm1$data), ", p = ", pval)) +
   xlim(0,lim) + ylim(0,lim)
-p = ggExtra::ggMarginal(p, type = "density", size = 8)
+p = ggExtra::ggMarginal(p, type = "density", size = 8, col = "gray")
 p
 
 ggsave(filename = "results/SCS+PSP/_forthesis_P-1.png", plot = p, height = 3.5, width = 3.5, dpi = "retina")

@@ -70,6 +70,8 @@ bothR$aa = str_split_fixed(bothR$key,";",Inf)[,2]
 # reorder amino acids
 bothR$aa = factor(bothR$aa, levels = AAchar_here)
 
+bothR$key[bothR$reactant == "PSP"] %>% unique() %>% length()
+bothR$key[bothR$reactant == "PCP"] %>% unique() %>% length()
 
 # ----- plot per position -----
 # plot per position
@@ -241,6 +243,11 @@ getEntropyLogos = function(prodType) {
   DFt = as.matrix(DFt[,interesting_residues])
   DFt = DFt[AAchar_here, ]
   
+  s = colSums(DFt, na.rm = T)
+  print(sort(s))
+  
+  print(sum(DFt, na.rm = T))
+  
   # get entropy
   l = ggseqlogo(DFt, method = "custom", seq_type = "aa", font = "helvetica_bold",col_scheme = cs) +
     scale_x_discrete(limits = colnames(DFt)) +
@@ -248,14 +255,26 @@ getEntropyLogos = function(prodType) {
     ylab("Delta H (prior - posterior)") +
     ggtitle(prodType)
   
-  return(l)
+  return(list(l = l,
+              DFt = DFt))
 }
 
-lpsp = getEntropyLogos("PSP")
-lpcp = getEntropyLogos("PCP")
+lpsp = getEntropyLogos(prodType = "PSP")
+lpcp = getEntropyLogos(prodType = "PCP")
 
 ggsave(filename = "results/Bayesian_ProteaSMM/PLOTS/logoPlots_infoGain.png",
-       plot = gridExtra::grid.arrange(lpcp, lpsp),
+       plot = gridExtra::grid.arrange(lpcp$l, lpsp$l),
        height = 8, width = 6, dpi = "retina")
 
+density(as.vector(lpsp$DFt) %>% na.omit()) %>% plot()
+density(as.vector(lpcp$DFt) %>% na.omit()) %>% plot()
 
+t.test(as.vector(lpsp$DFt) %>% na.omit(), as.vector(lpcp$DFt) %>% na.omit())
+twosamples::ad_test(as.vector(lpsp$DFt) %>% na.omit(), as.vector(lpcp$DFt))
+
+c("P6","P5","P4", "P3", "P2", "P1", "P-1","P-2","P-3","P-4","P-5","P-6")
+sum(lpsp$DFt[, colnames(lpsp$DFt) %in% c("P6","P5","P4", "P3", "P2", "P1")], na.rm = T)
+sum(lpsp$DFt[, colnames(lpsp$DFt) %in% c("P-1","P-2","P-3","P-4","P-5","P-6")], na.rm = T)
+
+sum(lpcp$DFt[, colnames(lpcp$DFt) %in% c("P6","P5","P4", "P3", "P2", "P1")], na.rm = T)
+sum(lpcp$DFt[, colnames(lpcp$DFt) %in% c("P-1","P-2","P-3","P-4","P-5","P-6")], na.rm = T)

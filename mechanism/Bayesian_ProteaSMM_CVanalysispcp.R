@@ -30,11 +30,8 @@ rcol <- rf(100)
 
 
 ### INPUT ###
-# fs = list.files("Bayesian_ProteaSMM/server/singleSubs_PCP_0621/", pattern = "posterior.RData", recursive = T, full.names = T)
-# load("data/ProteaSMM/PCP_SR1extfeat_P1/DATA.RData")
-
-fs = list.files("Bayesian_ProteaSMM/server/singleSubs_SR1_0623/", pattern = "posterior.RData", recursive = T, full.names = T)
-load("data/ProteaSMM/PSP_SR1extfeat_P1/DATA.RData")
+fs = list.files("Bayesian_ProteaSMM/server/singleSubs_PCP_0621/", pattern = "posterior.RData", recursive = T, full.names = T)
+load("data/ProteaSMM/PCP_SR1extfeat_P1/DATA.RData")
 
 
 ### MAIN PART ###
@@ -176,9 +173,8 @@ lapply(allROCs, function(cnt){
 dev.off()
 
 # ----- prediction of joint posterior on left out substrate -----
-load("results/Bayesian_ProteaSMM/PLOTS/LOV/PSP_chains_0623.RData")
+load("results/Bayesian_ProteaSMM/PLOTS/LOV/PCP_chains_0622.RData")
 CHAINSdf = plyr::ldply(CHAINS)
-
 jointPosterior = as.matrix(CHAINSdf[,paramNames])
 
 keep = which(subIDs == "MM582")
@@ -194,7 +190,7 @@ ttrue_mean = apply(t[keep, ],1,mean,na.rm = T)
 ttrue_sd = apply(t[keep, ],1,sd,na.rm = T)
 
 
-pdf("results/Bayesian_ProteaSMM/PLOTS/LOV/0623_PSP_MM582.pdf", height = 5, width = 8)
+pdf("results/Bayesian_ProteaSMM/PLOTS/LOV/0622_PCP_MM582.pdf", height = 5, width = 8)
 # correlation coefficient
 pcc = cor(ttrue_mean, tsims_mean)
 
@@ -433,24 +429,23 @@ uninformativeParams = names(DeltaH)[DeltaH < quantile(DeltaH, 0.3)]
 
 
 # euler diagram
-# png("results/Bayesian_ProteaSMM/PLOTS/LOV/0623_PSP_meaningfulParams.png", height = 4, width = 5, units = "in", res = 300)
-png("results/Bayesian_ProteaSMM/forThesis/fullModel_PSP_overlapStiff+Sloppy_withoutLabels.png", height = 4, width = 5, units = "in", res = 300)
+png("results/Bayesian_ProteaSMM/forThesis/fullModel_PCP_overlapStiff+Sloppy_withoutLabels.png", height = 4, width = 5, units = "in", res = 300)
 set.seed(244)
 euler(list(stiff = stiffParams, sloppy = sloppyParams,
            informative = informativeParams, uninformative = uninformativeParams),
       shape = "ellipse") %>%
   plot(quantities = T, labels = F,
-       c("royalblue","seashell","skyblue","thistle")) %>%
+       c("darkorange","seashell","firebrick","thistle")) %>%
   print()
 dev.off()
 
-png("results/Bayesian_ProteaSMM/forThesis/fullModel_PSP_overlapStiff+Sloppy_withLabels.png", height = 4, width = 5, units = "in", res = 300)
+png("results/Bayesian_ProteaSMM/forThesis/fullModel_PCP_overlapStiff+Sloppy_withLabels.png", height = 4, width = 5, units = "in", res = 300)
 set.seed(244)
 euler(list(stiff = stiffParams, sloppy = sloppyParams,
            informative = informativeParams, uninformative = uninformativeParams),
       shape = "ellipse") %>%
   plot(quantities = T, labels = T,
-       fill = c("royalblue","seashell","skyblue","thistle")) %>%
+       fill = c("darkorange","seashell","firebrick","thistle")) %>%
   print()
 dev.off()
 
@@ -460,7 +455,7 @@ jointPosteriorDF = jointPosteriorDF %>%
   mutate(infoclass = ifelse(key %in% informativeParams, "informative", "none"),
          infoclass = ifelse(key %in% uninformativeParams, "uninformative", infoclass))
 
-save(DeltaH, file = "results/Bayesian_ProteaSMM/PLOTS/LOV/0623_PSP_DeltaH.RData")
+save(DeltaH, file = "results/Bayesian_ProteaSMM/PLOTS/LOV/0622_PCP_DeltaH.RData")
 
 # ----- plot parameter distributions -----
 jointPosteriorDF$class = factor(jointPosteriorDF$class, levels = c("stiff", "sloppy", "none"))
@@ -492,7 +487,7 @@ for (p in 1:length(pos)) {
   
 }
 
-ggsave(filename = "results/Bayesian_ProteaSMM/PLOTS/LOV/0623_PSP_PARAMETERS.pdf", 
+ggsave(filename = "results/Bayesian_ProteaSMM/PLOTS/LOV/0622_PCP_PARAMETERS.pdf", 
        plot = gridExtra::marrangeGrob(allP, nrow=6, ncol=2, byrow = F), 
        width = 15, height = 27, dpi = "retina")
 
@@ -521,7 +516,7 @@ for (a in 1:length(AAchar_here)) {
   
 }
 
-ggsave(filename = "results/Bayesian_ProteaSMM/PLOTS/LOV/0623_PSP_PARAMETERS_aawise.pdf", 
+ggsave(filename = "results/Bayesian_ProteaSMM/PLOTS/LOV/0622_PCP_PARAMETERS_aawise.pdf", 
        plot = gridExtra::marrangeGrob(allPaa, nrow=7, ncol=3, byrow = T), 
        width = 28, height = 28, dpi = "retina")
 
@@ -535,7 +530,7 @@ stiff_info = CHAINSdf[,c(".id", stiffAndInformative)]
 sloppy_uninfo = CHAINSdf[,c(".id", sloppyAndUnInformative)]
 
 # colour gradient
-cc <- scales::seq_gradient_pal("royalblue", "skyblue")(seq(0,1,length.out=length(unique(stiff_info$.id))))
+cc <- scales::seq_gradient_pal("firebrick", "darkorange")(seq(0,1,length.out=length(unique(stiff_info$.id))))
 
 StiffInfoParam = list()
 for (j in 2:ncol(stiff_info)) {
@@ -555,7 +550,7 @@ for (j in 2:ncol(stiff_info)) {
 }
 
 
-ggsave(filename = "results/Bayesian_ProteaSMM/PLOTS/LOV/0623_STIFF+INFORMATIVE_PSPposteriors.pdf", 
+ggsave(filename = "results/Bayesian_ProteaSMM/PLOTS/LOV/0622_STIFF+INFORMATIVE_PCPposteriors.pdf", 
        plot = gridExtra::marrangeGrob(StiffInfoParam, nrow=5, ncol=5, byrow = T), 
        width = 20, height = 20, dpi = "retina")
 
@@ -579,27 +574,27 @@ for (j in 2:ncol(sloppy_uninfo)) {
 }
 
 
-ggsave(filename = "results/Bayesian_ProteaSMM/PLOTS/LOV/0623_SLOPPY+UNINFORMATIVE_PSPposteriors.pdf", 
+ggsave(filename = "results/Bayesian_ProteaSMM/PLOTS/LOV/0622_SLOPPY+UNINFORMATIVE_PCPposteriors.pdf", 
        plot = gridExtra::marrangeGrob(SloppyUninfoParam, nrow=5, ncol=5, byrow = T), 
        width = 20, height = 20, dpi = "retina")
 
 # plot some examples for thesis
-k = which(stiffAndInformative %in% c("P1;S","P1;G","P-1;F"))
-ggsave(filename = "results/Bayesian_ProteaSMM/forThesis/fullModel_PSP_marginalPosteriorsInfo.png", 
+k = which(stiffAndInformative %in% c("P1;P","P1;G","P-1;F"))
+ggsave(filename = "results/Bayesian_ProteaSMM/forThesis/fullModel_PCP_marginalPosteriorsInfo.png", 
        plot = gridExtra::marrangeGrob(StiffInfoParam[k], nrow=3, ncol=1), 
        width = 2.5, height = 7.5, dpi = "retina")
 
-k2 = which(sloppyAndUnInformative %in% c("P1;A","P1;M","P1;V"))
-ggsave(filename = "results/Bayesian_ProteaSMM/forThesis/fullModel_PSP_marginalPosteriorsUninfo.png", 
+k2 = which(sloppyAndUnInformative %in% c("P1;M","P-1;K","P1;M"))
+ggsave(filename = "results/Bayesian_ProteaSMM/forThesis/fullModel_PCP_marginalPosteriorsUninfo.png", 
        plot = gridExtra::marrangeGrob(SloppyUninfoParam[k2], nrow=3, ncol=1), 
        width = 2.5, height = 7.5, dpi = "retina")
 
 ### OUTPUT ###
 params = stiffAndInformative
-save(params, file = "data/ProteaSMM/PSP_SR1extfeat_P1/stiff_informative_params.RData")
+save(params, file = "data/ProteaSMM/PCP_SR1extfeat_P1/stiff_informative_params.RData")
 params = sloppyAndUnInformative
-save(params, file = "data/ProteaSMM/PSP_SR1extfeat_P1/sloppy_uninformative_params.RData")
+save(params, file = "data/ProteaSMM/PCP_SR1extfeat_P1/sloppy_uninformative_params.RData")
 
-save(jointPosterior, file = "results/Bayesian_ProteaSMM/PLOTS/LOV/0623_PSPposteriors.RData")
+save(jointPosterior, file = "results/Bayesian_ProteaSMM/PLOTS/LOV/0622_PCPposteriors.RData")
 
 

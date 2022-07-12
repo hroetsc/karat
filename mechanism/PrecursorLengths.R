@@ -103,6 +103,47 @@ getPrecursorComparison = function(DB, pepLen, dataset, reactant = "SR1") {
   ALL = rbind(OBSERVED %>% mutate(df = "obsnumPrec"),
               THEORETICAL %>% mutate(df = "theonumPrec"))
   
+  # ----- get frequency over length -----
+  # observed
+  freqOverLength = OBSERVED %>%
+    group_by(substrateID, sr1, spliceType) %>%
+    summarise(n = sum(numPrec)) %>%
+    tidyr::spread(spliceType,n, fill = 0) %>%
+    tidyr::gather(spliceType,n, -substrateID, -sr1) %>%
+    ungroup() %>% group_by(substrateID, sr1) %>%
+    mutate(freq = n/sum(n))
+  
+  freqOverLength$spliceType = factor(freqOverLength$spliceType, levels = c("PCP","cis","revCis","trans"))
+  freqOverLength = freqOverLength[freqOverLength$sr1 <= 15, ]
+  fol = ggplot(freqOverLength, aes(x = factor(sr1), y = freq, fill = spliceType)) +
+    geom_boxplot(outlier.shape = NA, coef = 0, position = position_dodge(0.5), aes(alpha = .9), lwd = .3) +
+    scale_fill_manual(values = c(plottingCols[["PCP"]], plottingCols[["cis"]], plottingCols[["revCis"]], plottingCols[["trans"]])) +
+    xlab("precursor length") +
+    ylab("product type frequency") + 
+    ggtitle("observed")
+  
+  # theoretically
+  freqOverLength = THEORETICAL %>%
+    group_by(substrateID, sr1, spliceType) %>%
+    summarise(n = sum(numPrec)) %>%
+    tidyr::spread(spliceType,n, fill = 0) %>%
+    tidyr::gather(spliceType,n, -substrateID, -sr1) %>%
+    ungroup() %>% group_by(substrateID, sr1) %>%
+    mutate(freq = n/sum(n))
+  
+  freqOverLength$spliceType = factor(freqOverLength$spliceType, levels = c("PCP","cis","revCis","trans"))
+  freqOverLength = freqOverLength[freqOverLength$sr1 <= 15, ]
+  folt = ggplot(freqOverLength, aes(x = factor(sr1), y = log10(freq), fill = spliceType)) +
+    geom_boxplot(outlier.shape = NA, coef = 0, position = position_dodge(0.5), aes(alpha = .9), lwd = .3) +
+    scale_fill_manual(values = c(plottingCols[["PCP"]], plottingCols[["cis"]], plottingCols[["revCis"]], plottingCols[["trans"]])) +
+    xlab("precursor length") +
+    ylab("log10 product type frequency") + 
+    ggtitle("theoretically")
+  
+  ggsave(filename = paste0("results/precursor_lengths/freqOverLength_",dataset,"_", reactant,".png"),
+         plot = gridExtra::grid.arrange(fol,folt, nrow = 2),
+         dpi = "retina", height = 6, width = 4)
+  
   # scale between 1 and 100
   ALLdf = ALL %>%
     group_by(df, spliceType) %>%

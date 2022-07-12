@@ -25,7 +25,7 @@ suppressWarnings(dir.create("results/WTMut/DEanalysis/"))
 ### HYPERPARAMETERS ###
 # Differential expression parameters
 pval.threshold = 0.1
-fc.threshold = 1.5
+fc.threshold = log10(2)
 
 
 ### INPUT ###
