@@ -13,8 +13,8 @@ source("src/invitroSPI_utils.R")
 ### INPUT ###
 WTMut = read.csv("../DATA/WT-Mut/invitroSPI/OUTPUT/WT_Mut_0_4/ProteasomeDB.csv",
                  stringsAsFactors = F)
-# WTMut_late = read.csv("../DATA/WT-Mut/invitroSPI/OUTPUT/WT_Mut_0_20/ProteasomeDB.csv",
-#                       stringsAsFactors = F)
+WTMut_late = read.csv("/Volumes/DATA16040/DATA/ProteasomeDB/WT-Mut/invitroSPI/OUTPUT/WT_Mut_0_20/ProteasomeDB.csv",
+                      stringsAsFactors = F)
 
 WTMutsubNames = read.csv("../DATA/WT-Mut/qiSPI/INPUT/sample_list.csv", stringsAsFactors = F) %>%
   select(protein_name, substrateID) %>%
@@ -29,6 +29,7 @@ suppressWarnings(dir.create("results/WTMut/"))
 WTMut = left_join(WTMut, WTMutsubNames)
 
 Qual = WTMut %>%
+  remSynthErrors() %>%
   ILredundancy() %>%
   uniquePeptides() %>%
   disentangleMultimappers.Type() %>%
