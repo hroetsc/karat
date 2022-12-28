@@ -177,6 +177,47 @@ load("results/Bayesian_ProteaSMM/PLOTS/LOV/PCP_chains_0622.RData")
 CHAINSdf = plyr::ldply(CHAINS)
 jointPosterior = as.matrix(CHAINSdf[,paramNames])
 
+
+# --- predict on all substrates except MM582
+keep = which(subIDs != "MM582")
+tsims = apply(jointPosterior,1,function(p){
+  X[keep,]%*%log(p)
+})
+
+tsims_mean = apply(tsims,1,mean,na.rm = T)
+tsims_sd = apply(tsims,1,sd,na.rm = T)
+
+ttrue_mean = apply(t[keep, ],1,mean,na.rm = T)
+ttrue_sd = apply(t[keep, ],1,sd,na.rm = T)
+
+png("results/Bayesian_ProteaSMM/PLOTS/LOV/FIT_fullModel_PCP.png", height = 5, width = 5, units = "in", res = 300)
+lim = c(min(ttrue_mean, tsims_mean), max(ttrue_mean, tsims_mean))
+
+# correlation coefficient
+pcc = cor(ttrue_mean, tsims_mean)
+
+plot(x = ttrue_mean, y = tsims_mean,
+     pch = 16, xlab = "true", ylab = "predicted",
+     col = add.alpha("black", .7), cex = .7,
+     xlim = lim, ylim = lim,
+     main = paste0("PCC = ", round(pcc,4)))
+abline(a = 0, b = 1, col = "red")
+
+arrows(x0 = ttrue_mean+ttrue_sd,
+       x1 = ttrue_mean-ttrue_sd,
+       y0 = tsims_mean, y1 = tsims_mean,
+       col = add.alpha("black", .7),
+       code = 3, angle = 90, length = 0.03, lwd = .3) %>% suppressWarnings()
+arrows(x0 = ttrue_mean, x1 = ttrue_mean,
+       y0 = tsims_mean+tsims_sd, y1 = tsims_mean-tsims_sd,
+       col = add.alpha("black", .7),
+       code = 3, angle = 90, length = 0.03, lwd = .3) %>% suppressWarnings()
+
+dev.off()
+
+
+
+# --- predict on MM582
 keep = which(subIDs == "MM582")
 tsims = apply(jointPosterior,1,function(p){
   tsim = X[keep,]%*%log(p)
@@ -596,5 +637,42 @@ params = sloppyAndUnInformative
 save(params, file = "data/ProteaSMM/PCP_SR1extfeat_P1/sloppy_uninformative_params.RData")
 
 save(jointPosterior, file = "results/Bayesian_ProteaSMM/PLOTS/LOV/0622_PCPposteriors.RData")
+
+
+# ----- all Parameters joint posterior -----
+cc <- scales::seq_gradient_pal("firebrick", "darkorange")(seq(0,1,length.out=length(unique(CHAINSdf$.id))))
+CHAINSdfmod = CHAINSdf[, -which(colnames(CHAINSdf) == "sigma")]
+
+AllPosteriors = list()
+for (j in 2:ncol(CHAINSdfmod)) {
+  
+  pcaname = if (colnames(CHAINSdfmod)[j] %in% sloppyParams) "sloppy" else if(colnames(CHAINSdfmod)[j] %in% stiffParams) "stiff" else "none"
+  entroname = if (colnames(CHAINSdfmod)[j] %in% informativeParams) "informative" else if (colnames(CHAINSdfmod)[j] %in% uninformativeParams) "uninformative" else "none"
+  
+  cnt = CHAINSdfmod[,c(1,j)]
+  names(cnt) = c("file","param")
+  cntP = ggplot(cnt, aes(x = param, col = file)) +
+    geom_density() +
+    # xlab("") + ylab("") +
+    ggtitle(colnames(CHAINSdfmod)[j], subtitle = paste0(pcaname, ", ", entroname)) +
+    # scale_color_viridis_d() +
+    scale_colour_manual(values=cc)+
+    xlim(c(0,2)) +
+    theme(legend.position = "none",
+          axis.title.x =element_blank(),
+          axis.title.y=element_blank())
+  
+  AllPosteriors[[j-1]] = cntP
+}
+
+ggsave(filename = "results/Bayesian_ProteaSMM/forThesis/fullModel_PCP_allMarginals1.png", 
+       plot = gridExtra::marrangeGrob(AllPosteriors[1:88], layout_matrix = matrix(c(1:88), ncol=8, nrow=11, byrow = T), top=NULL), 
+       width = 34, height = 44, units = "cm", dpi = 200)
+ggsave(filename = "results/Bayesian_ProteaSMM/forThesis/fullModel_PCP_allMarginals2.png", 
+       plot = gridExtra::marrangeGrob(AllPosteriors[89:176], layout_matrix = matrix(c(1:88), ncol=8, nrow=11, byrow = T), top=NULL), 
+       width = 34, height = 44, units = "cm", dpi = 200)
+ggsave(filename = "results/Bayesian_ProteaSMM/forThesis/fullModel_PCP_allMarginals3.png", 
+       plot = gridExtra::marrangeGrob(AllPosteriors[177:250], layout_matrix = matrix(c(1:80), ncol=8, nrow=10, byrow = T), top=NULL), 
+       width = 34, height = 40, units = "cm", dpi = 200)
 
 

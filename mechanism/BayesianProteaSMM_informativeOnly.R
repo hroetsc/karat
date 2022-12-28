@@ -6,6 +6,9 @@
 
 library(dplyr)
 library(stringr)
+library(ggplot2)
+
+theme_set(theme_classic())
 source("src/plotting_utils.R")
 
 pseudo = 1e-05
@@ -73,8 +76,11 @@ save(parameters, file = "results/Bayesian_ProteaSMM/PLOTS/LOV/0623_PSPposteriors
 
 # ----- demonstrate fits -----
 load("data/ProteaSMM/PSP_SR1extfeat_P1/DATA.RData")
-load("data/ProteaSMM/PSP_SR1extfeat_P1/stiff_informative_params.RData")
-load("Bayesian_ProteaSMM/server/SR1_0627/stiffAndInformative/posterior.RData")
+# load("data/ProteaSMM/PSP_SR1extfeat_P1/stiff_informative_params.RData")
+# load("Bayesian_ProteaSMM/server/SR1_0627/stiffAndInformative/posterior.RData")
+load("data/ProteaSMM/PSP_SR1extfeat_P1/sloppy_uninformative_params.RData")
+load("Bayesian_ProteaSMM/server/SR1_0627/sloppyAndUninformative/posterior.RData")
+
 
 # load("data/ProteaSMM/PSP_SR1extfeat_P1/DATA.RData")
 # load("data/ProteaSMM/PSP_SR1extfeat_P1/sloppy_uninformative_params.RData")
@@ -104,8 +110,8 @@ tsims_sd = apply(tsims,1,sd,na.rm = T)
 ttrue_mean = apply(t[keep, ],1,mean,na.rm = T)
 ttrue_sd = apply(t[keep, ],1,sd,na.rm = T)
 
-# png("results/Bayesian_ProteaSMM/PLOTS/LOV/FIT_sloppy+uninformative_PCP.png", height = 5, width = 5, units = "in", res = 300)
-png("results/Bayesian_ProteaSMM/PLOTS/LOV/FIT_stiff+informative_SR1.png", height = 5, width = 5, units = "in", res = 300)
+png("results/Bayesian_ProteaSMM/PLOTS/LOV/FIT_sloppy+uninformative_SR1.png", height = 5, width = 5, units = "in", res = 300)
+# png("results/Bayesian_ProteaSMM/PLOTS/LOV/FIT_stiff+informative_SR1.png", height = 5, width = 5, units = "in", res = 300)
 lim = c(min(ttrue_mean, tsims_mean), max(ttrue_mean, tsims_mean))
 
 # correlation coefficient

@@ -45,6 +45,8 @@ antigenName = "LLO"
 antigen = "MAHHHHHHMSDNGPQNQRNAPRITFGGPSDSTGSNQNGERSGARSKQRRPQGLPNNTASWFTALTQHGKEDLKFPRGQGVPINTNSSPDDQIGYYRRATRRIRGGDGKMKDLSPRWYFYYLGTGPEAGLPYGANKDGIIWVATEGALNTPKDHIGTRNPANNAAIVLQLPQGTTLPKGFYAEGSRGGSQASSRSSSRSRNSSRNSTPGSSRGTSPARMAGNGGDAALALLLLDRLNQLESKMSGKGQQQQGQTVTKKSAAEASKKPRQKRTATKAYNVTQAFGRRGPEQTQGNFGDQELIRQGTDYKHWPQIAQFAPSASAFFGMSRIGMEVTPSGTWLTYTGAIKLDDKDPNFKDQVILLNKHIDAYKTFPPTEPKKDKKKKADETQALPQRQKKQQTVTLLPAADLDDFSKQLQQSMSSADSTQA"
 antigenName = "SARSCoV2-nucleoprotein"
 
+
+
 load("results/Bayesian_ProteaSMM/PLOTS/LOV/0622_PCPposteriors_stiff+informative.RData")
 pcp_parameters = parameters
 load("results/Bayesian_ProteaSMM/PLOTS/LOV/0623_PSPposteriors_stiff+informative.RData")
@@ -78,8 +80,6 @@ getSubstrateCounts = function(Seq, paramNames) {
   return(master)
 }
 
-Xpsp = getSubstrateCounts(Seq = antigen, paramNames = colnames(psp_parameters))
-Xpcp = getSubstrateCounts(Seq = antigen, paramNames = colnames(pcp_parameters))
 
 # ----- predict SCS- and PSP-P1 -----
 
@@ -100,8 +100,89 @@ predictSCSandPSP = function(X, p) {
               sd = tsims_sd)) 
 }
 
-pspPred = predictSCSandPSP(X = Xpsp, p = psp_parameters)
-pcpPred = predictSCSandPSP(X = Xpcp, p = pcp_parameters)
+
+getAllPlots = function(antigen, antigenName, knownPeptide) {
+  
+  Xpsp = getSubstrateCounts(Seq = antigen, paramNames = colnames(psp_parameters))
+  Xpcp = getSubstrateCounts(Seq = antigen, paramNames = colnames(pcp_parameters))
+  
+  pspPred = predictSCSandPSP(X = Xpsp, p = psp_parameters)
+  pcpPred = predictSCSandPSP(X = Xpcp, p = pcp_parameters)
+  
+  p = data.frame(residue = c(c(1:nchar(antigen)), c(1:nchar(antigen))+.2),
+                 p1 = c(pcpPred$mean, pspPred$mean),
+                 stdev = c(pcpPred$sd, pspPred$sd),
+                 col = c(rep(plottingCols["PCP"], nchar(antigen)),
+                         rep(plottingCols["PSP"], nchar(antigen))))
+  yl = max(p$p1+p$stdev) %>% ceiling()
+  
+  # png(paste0("results/Bayesian_ProteaSMM/predictOnAntigens/",antigenName,".png"), height = 5, width = 10, units = "in", res = 300)
+  plot(p1~residue, data=p,
+       type = "h", lwd = 4, col = col,
+       ylim = c(0, yl),
+       main = antigenName,
+       sub = paste0("known epitope: ", knownPeptide),
+       xlab = "",
+       ylab = "predicted cleavage/splicing strength (%)",
+       axes=F)
+  arrows(p$residue, p$p1-p$stdev, p$residue, p$p1+p$stdev,
+         length=0.03, angle=90, code=3,
+         lty = "solid", lwd = 1, col = p$col) %>%
+    suppressWarnings()
+  
+  xlabel = c("", paste(antigen %>% strsplit("") %>% unlist()))
+  text(x = seq(1, nchar(antigen)+1), par("usr")[3]-.3, labels = paste(antigen %>% strsplit("") %>% unlist()),
+       xpd = T, cex = 1)
+  axis(2, at = seq(round(-yl,-1),round(yl,-1),20))
+  
+  legend("topleft",
+         legend = c("cleavage strength (SCS-P1)", "splicing strength (PSP-P1)"),
+         lty = c("solid","solid"), col = c(plottingCols["PCP"],plottingCols["PSP"]),
+         lwd = c(4,4),
+         cex = .8, bty = "n", horiz = F)
+  # dev.off()
+  
+}
+
+# for SIINFEKL project
+intervening = c("LLLADL","LELADL","LLLSDL","LELSDL")
+seq = c("LELPFASGTMSMLVLLPDEVSGLEQLESIINFEKLTEWTSSNVMEERKIKVYLPRMKMEE")
+st = str_locate(pattern = "SIINFEKL", seq)[1]
+en = str_locate(pattern = "SIINFEKL", seq)[2]
+
+pdf("../../SIINFEKL/SIINFEKL_predictions.pdf", height = 5, width = 10)
+for (i in st:(en-1)) {
+  cntA = paste0(substr(seq, 1, i), intervening, substr(seq,i+1,nchar(seq)))
+  names(cntA) = intervening
+  sapply(cntA, function(x){
+    getAllPlots(antigen = x, antigenName = names(x), knownPeptide = "SIINFEKL")
+  })
+}
+dev.off()
+
+# for thesis
+getAllPlots(antigen = "THTMEVTVYHRRGSRSYVPLAHSSSAFTITDQVPFSVSVS", antigenName = "gp100_181-220",
+            knownPeptide = "[RSYVPLAH][R]")
+
+getAllPlots(antigen = "VGATKVPRNQDWLGVSRQLRTKAWNRQLYPEWTEAQRLDC", antigenName = "gp100_21-60",
+            knownPeptide = "[RSYVPLAH][R]")
+
+getAllPlots(antigen = "ALGVNAENPPAYISSVAYGRQVYLKLSTNS", antigenName = "Listeria_LLO",  # 281-310
+            knownPeptide = "[S][AYGRQVYL]")
+
+getAllPlots(antigen = "YNTYASAIHRTEKTGREWYVALNKRGKAKRGCSPRVKPQHISTHFLPRFKQSEQPELSFT", antigenName = "FGF-5",  # 171-230
+            knownPeptide = "[NTYAS][PRFK]")
+
+getAllPlots(antigen = "SMDKAANFSFRNTLEGFASPLTGIADASQSSMHNALHIYMNGTMSQVQGS", antigenName = "Tyrosinase",  # 331-380
+            knownPeptide = "[IYMDGT][ADFSF]")
+
+getAllPlots(antigen = "TPSDKKGKKRKRCIWSTPKRRHKKKSLPRGTASSRHGIQK", antigenName = "SP110_GtoR",  # 281-310
+            knownPeptide = "[SLPRGT][STPK]")
+
+getAllPlots(antigen = "KKRYSTQVDPELADQLIHLYYFDCFSDSAIRKALLGHIVS", antigenName = "HIV-1_Vif",  # 281-310
+            knownPeptide = "[FSD][QLIHLY]")
+
+
 
 # ----- plot predictions ------
 # SARS-Cov2 nucleoprotein for thesis

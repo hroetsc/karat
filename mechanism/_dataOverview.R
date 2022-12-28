@@ -89,6 +89,7 @@ splicetypes(DB = proteins, nm = "proteins")
 peplengths = function(DB, nm) {
   
   DB$pepLen = nchar(DB$pepSeq)
+  DB$spliceType = factor(DB$spliceType, levels = c("PCP","allcis","trans"))
   
   p = ggplot(DB, aes(x = spliceType, y = pepLen, fill = spliceType)) +
     geom_violin(draw_quantiles = 0.5) +
